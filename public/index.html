@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sayyad Voice Order</title>
+<style>
+  :root { --bg:#f5f7f8; --card:#fff; --ink:#1b2a33; --muted:#5d6f7a; --line:#dde4e8; --accent:#0a7c86; --accent-ink:#fff; --warn:#b4541a; --ok:#1f7a45; --code:#0f1b22; --code-ink:#d7e6ee; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e1519; --card:#162027; --ink:#e3edf2; --muted:#94a7b2; --line:#26343d; --accent:#2bb3bf; --accent-ink:#06252a; --warn:#f0a06b; --ok:#6bd39a; --code:#0a1014; --code-ink:#cfe0e8; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui, "Segoe UI", Tahoma, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { margin:0 0 4px; font-size:1.6rem; }
+  p.sub { margin:0 0 24px; color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:16px; }
+  .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  button, label.file { border:0; border-radius:999px; padding:12px 22px; font:inherit; font-weight:600; cursor:pointer; background:var(--accent); color:var(--accent-ink); }
+  button.recording { background:#c62828; color:#fff; }
+  button:disabled { opacity:.5; cursor:default; }
+  label.file { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  label.file input { display:none; }
+  #status { color:var(--muted); }
+  h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 8px; }
+  .transcript { font-size:1.15rem; }
+  .pill { display:inline-block; padding:2px 12px; border-radius:999px; font-weight:600; border:1px solid currentColor; }
+  .pill.buyer, .pill.seller { color:var(--ok); } .pill.unrelated { color:var(--warn); }
+  .headline { font-weight:600; margin:0 0 6px; }
+  ul { margin:0; padding-left:20px; }
+  .warn { color:var(--warn); }
+  pre { background:var(--code); color:var(--code-ink); padding:16px; border-radius:8px; overflow-x:auto; font-size:.85rem; margin:0; }
+  [dir=rtl] { text-align:right; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sayyad Voice Order</h1>
+  <p class="sub">Say what you want to buy or sell. Example: “أبغى ١٠٠ كيلو هامور” or “عندي ٢٠٠ كيلو شعور بـ ٢٥ ريال للكيلو”.</p>
+
+  <div class="card">
+    <div class="controls">
+      <button id="record">● Record</button>
+      <label class="file">Upload audio<input id="file" type="file" accept="audio/*"></label>
+      <span id="status">Ready.</span>
+    </div>
+  </div>
+
+  <div id="results" class="hidden">
+    <div class="card"><h2>1 · Transcript (Whisper)</h2><div id="transcript" class="transcript" dir="auto"></div></div>
+    <div class="card"><h2>2 · Intent (DeepSeek)</h2><span id="intent" class="pill"></span> <span id="reason" style="color:var(--muted)"></span></div>
+    <div class="card"><h2>3 · What we understood</h2><div id="summary"></div></div>
+    <div class="card" id="apiCard"><h2>4 · Backend API request</h2><pre id="api"></pre></div>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let recorder, chunks = [];
+
+$('record').onclick = async () => {
+  if (recorder && recorder.state === 'recording') return recorder.stop();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    recorder = new MediaRecorder(stream);
+    chunks = [];
+    recorder.ondataavailable = (e) => chunks.push(e.data);
+    recorder.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      $('record').textContent = '● Record';
+      $('record').classList.remove('recording');
+      send(new Blob(chunks, { type: recorder.mimeType }));
+    };
+    recorder.start();
+    $('record').textContent = '■ Stop';
+    $('record').classList.add('recording');
+    $('status').textContent = 'Recording… press Stop when done.';
+  } catch (err) {
+    $('status').textContent = 'Microphone unavailable: ' + err.message;
+  }
+};
+
+$('file').onchange = (e) => { if (e.target.files[0]) send(e.target.files[0]); e.target.value = ''; };
+
+async function send(blob) {
+  $('record').disabled = true;
+  $('status').textContent = 'Processing: transcribing, classifying, extracting…';
+  try {
+    const res = await fetch('/api/voice-order', { method: 'POST', headers: { 'Content-Type': blob.type || 'audio/webm' }, body: blob });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    render(data);
+    $('status').textContent = 'Done.';
+  } catch (err) {
+    $('status').textContent = 'Error: ' + err.message;
+  } finally {
+    $('record').disabled = false;
+  }
+}
+
+function el(tag, text, attrs = {}) { const n = document.createElement(tag); n.textContent = text; Object.assign(n, attrs); return n; }
+
+function render(d) {
+  $('results').classList.remove('hidden');
+  $('transcript').textContent = d.transcript || '(empty)';
+  $('intent').textContent = d.intent;
+  $('intent').className = 'pill ' + d.intent;
+  $('reason').textContent = d.reason || '';
+
+  const s = $('summary');
+  s.replaceChildren();
+  if (d.summary) {
+    s.append(el('p', d.summary.headline, { className: 'headline' }));
+    const ul = el('ul', '');
+    d.summary.lines.forEach((l) => ul.append(el('li', l)));
+    s.append(ul);
+  } else {
+    if (d.incomplete) {
+      s.append(el('p', 'Some details are missing: ' + d.incomplete.join('; ') + '.', { className: 'warn' }));
+    }
+    s.append(el('p', d.message.ar, { dir: 'rtl' }));
+    s.append(el('p', d.message.en));
+  }
+
+  $('apiCard').classList.toggle('hidden', !d.apiRequest);
+  if (d.apiRequest) $('api').textContent = `${d.apiRequest.method} ${d.apiRequest.path}\n\n` + JSON.stringify(d.apiRequest.body, null, 2);
+}
+</script>
+</body>
+</html>

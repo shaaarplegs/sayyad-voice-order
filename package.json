@@ -1,0 +1,10 @@
+{
+  "name": "sayyad-voice-order",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Voice-to-order prototype for Sayyad: Whisper transcription + DeepSeek intent and fish-set extraction.",
+  "engines": { "node": ">=21.7" },
+  "scripts": {
+    "start": "node server.js"
+  }
+}
