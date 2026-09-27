@@ -30,11 +30,23 @@
   pre { background:var(--code); color:var(--code-ink); padding:16px; border-radius:8px; overflow-x:auto; font-size:.85rem; margin:0; }
   [dir=rtl] { text-align:right; }
   .hidden { display:none; }
+  header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); padding:8px 16px; }
+  dialog { border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--ink); padding:24px; width:min(480px, calc(100% - 32px)); }
+  dialog::backdrop { background:rgba(0,0,0,.45); }
+  dialog h3 { margin:0 0 4px; }
+  dialog label { display:block; font-weight:600; margin:14px 0 4px; }
+  dialog input { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit; }
+  dialog .note { color:var(--muted); font-size:.85rem; margin:0; }
+  dialog .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>Sayyad Voice Order</h1>
+  <header>
+    <h1>Sayyad Voice Order</h1>
+    <button id="openSettings" class="ghost">⚙ Settings</button>
+  </header>
   <p class="sub">Say what you want to buy or sell. Example: “أبغى ١٠٠ كيلو هامور” or “عندي ٢٠٠ كيلو شعور بـ ٢٥ ريال للكيلو”.</p>
 
   <div class="card">
@@ -52,8 +64,48 @@
     <div class="card" id="apiCard"><h2>4 · Backend API request</h2><pre id="api"></pre></div>
   </div>
 </main>
-<script>
+
+<dialog id="settings">
+  <form method="dialog">
+    <h3>Settings</h3>
+    <p class="note">Keys are saved in this browser only and sent straight to OpenAI and DeepSeek.</p>
+    <label for="openaiKey">OpenAI API key (Whisper transcription)</label>
+    <input id="openaiKey" type="password" autocomplete="off" placeholder="sk-...">
+    <label for="deepseekKey">DeepSeek API key (intent + extraction)</label>
+    <input id="deepseekKey" type="password" autocomplete="off" placeholder="sk-...">
+    <label for="deepseekModel">DeepSeek model</label>
+    <input id="deepseekModel" type="text" placeholder="deepseek-flash">
+    <label for="whisperModel">Whisper model</label>
+    <input id="whisperModel" type="text" placeholder="whisper-1">
+    <div class="actions">
+      <button value="cancel" class="ghost" formnovalidate>Cancel</button>
+      <button id="saveSettings" value="save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script type="module">
+import { runPipeline } from './pipeline.js';
+
 const $ = (id) => document.getElementById(id);
+const FIELDS = ['openaiKey', 'deepseekKey', 'deepseekModel', 'whisperModel'];
+const EXTENSIONS = { webm: 'webm', ogg: 'ogg', mp4: 'mp4', mpeg: 'mp3', mp3: 'mp3', wav: 'wav', 'x-wav': 'wav', m4a: 'm4a', 'x-m4a': 'm4a' };
+
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem('sayyadSettings')) || {}; } catch { return {}; }
+}
+
+$('openSettings').onclick = () => {
+  const s = loadSettings();
+  FIELDS.forEach((f) => { $(f).value = s[f] || ''; });
+  $('settings').showModal();
+};
+$('saveSettings').onclick = () => {
+  const s = Object.fromEntries(FIELDS.map((f) => [f, $(f).value.trim()]));
+  try { localStorage.setItem('sayyadSettings', JSON.stringify(s)); } catch {}
+  $('status').textContent = 'Settings saved.';
+};
+if (!loadSettings().openaiKey) $('status').textContent = 'Open Settings to add your API keys.';
 let recorder, chunks = [];
 
 $('record').onclick = async () => {
@@ -84,10 +136,9 @@ async function send(blob) {
   $('record').disabled = true;
   $('status').textContent = 'Processing: transcribing, classifying, extracting…';
   try {
-    const res = await fetch('/api/voice-order', { method: 'POST', headers: { 'Content-Type': blob.type || 'audio/webm' }, body: blob });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-    render(data);
+    const mimeType = (blob.type || 'audio/webm').split(';')[0];
+    const ext = EXTENSIONS[mimeType.split('/')[1]] || 'webm';
+    render(await runPipeline(blob, `recording.${ext}`, mimeType, loadSettings()));
     $('status').textContent = 'Done.';
   } catch (err) {
     $('status').textContent = 'Error: ' + err.message;

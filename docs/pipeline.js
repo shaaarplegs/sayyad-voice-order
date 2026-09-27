@@ -4,23 +4,28 @@
 const OPENAI_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions';
 
-function requireKey(name) {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set. Add it to .env and restart the server.`);
-  return value;
+// Keys and models come from the Settings dialog (saved in this browser only).
+let settings = {};
+
+function requireKey(name, label) {
+  if (!settings[name]) throw new Error(`${label} API key is not set. Open Settings and add it.`);
+  return settings[name];
 }
 
 async function transcribe(audio, filename, mimeType) {
   const form = new FormData();
-  form.append('file', new Blob([audio], { type: mimeType }), filename);
-  form.append('model', process.env.WHISPER_MODEL || 'whisper-1');
+  form.append('file', audio, filename);
+  form.append('model', settings.whisperModel || 'whisper-1');
   // Vocabulary hint so Whisper spells fish names, units and prices well.
   form.append('prompt', 'طلب سمك: هامور، شعور، كنعد، سلمون، كيلو، طن، ريال. أبغى أشتري، عندي للبيع.');
 
+  // OpenAI omits CORS headers on invalid-key responses, so the browser reports a network error.
   const res = await fetch(OPENAI_URL, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${requireKey('OPENAI_API_KEY')}` },
+    headers: { Authorization: `Bearer ${requireKey('openaiKey', 'OpenAI')}` },
     body: form,
+  }).catch(() => {
+    throw new Error('Could not reach OpenAI. This usually means the OpenAI API key is invalid; check it in Settings.');
   });
   if (!res.ok) throw new Error(`OpenAI transcription failed (${res.status}): ${await res.text()}`);
   return (await res.json()).text.trim();
@@ -30,11 +35,11 @@ async function deepseekJson(systemPrompt, userText) {
   const res = await fetch(DEEPSEEK_URL, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${requireKey('DEEPSEEK_API_KEY')}`,
+      Authorization: `Bearer ${requireKey('deepseekKey', 'DeepSeek')}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+      model: settings.deepseekModel || 'deepseek-flash',
       temperature: 0,
       response_format: { type: 'json_object' },
       messages: [
@@ -140,7 +145,8 @@ function summarize(role, fishSets) {
   };
 }
 
-async function runPipeline(audio, filename, mimeType) {
+export async function runPipeline(audio, filename, mimeType, userSettings) {
+  settings = userSettings;
   const transcript = await transcribe(audio, filename, mimeType);
   if (!transcript) return { transcript, intent: 'unrelated', reason: 'Empty transcript.', message: UNRELATED_MESSAGE };
 
@@ -164,5 +170,3 @@ async function runPipeline(audio, filename, mimeType) {
     apiRequest: buildApiRequest(intent, fishSets),
   };
 }
-
-module.exports = { runPipeline, buildApiRequest, summarize, missingFields };
