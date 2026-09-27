@@ -1,179 +1,132 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sayyad Voice Order</title>
-<style>
-  :root { --bg:#f5f7f8; --card:#fff; --ink:#1b2a33; --muted:#5d6f7a; --line:#dde4e8; --accent:#0a7c86; --accent-ink:#fff; --warn:#b4541a; --ok:#1f7a45; --code:#0f1b22; --code-ink:#d7e6ee; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#0e1519; --card:#162027; --ink:#e3edf2; --muted:#94a7b2; --line:#26343d; --accent:#2bb3bf; --accent-ink:#06252a; --warn:#f0a06b; --ok:#6bd39a; --code:#0a1014; --code-ink:#cfe0e8; } }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui, "Segoe UI", Tahoma, sans-serif; }
-  main { max-width:760px; margin:0 auto; padding:32px 16px 64px; }
-  h1 { margin:0 0 4px; font-size:1.6rem; }
-  p.sub { margin:0 0 24px; color:var(--muted); }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:16px; }
-  .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
-  button, label.file { border:0; border-radius:999px; padding:12px 22px; font:inherit; font-weight:600; cursor:pointer; background:var(--accent); color:var(--accent-ink); }
-  button.recording { background:#c62828; color:#fff; }
-  button:disabled { opacity:.5; cursor:default; }
-  label.file { background:transparent; color:var(--accent); border:1px solid var(--accent); }
-  label.file input { display:none; }
-  #status { color:var(--muted); }
-  h2 { font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 8px; }
-  .transcript { font-size:1.15rem; }
-  .pill { display:inline-block; padding:2px 12px; border-radius:999px; font-weight:600; border:1px solid currentColor; }
-  .pill.buyer, .pill.seller { color:var(--ok); } .pill.unrelated { color:var(--warn); }
-  .headline { font-weight:600; margin:0 0 6px; }
-  ul { margin:0; padding-left:20px; }
-  .warn { color:var(--warn); }
-  pre { background:var(--code); color:var(--code-ink); padding:16px; border-radius:8px; overflow-x:auto; font-size:.85rem; margin:0; }
-  [dir=rtl] { text-align:right; }
-  .hidden { display:none; }
-  header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
-  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); padding:8px 16px; }
-  dialog { border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--ink); padding:24px; width:min(480px, calc(100% - 32px)); }
-  dialog::backdrop { background:rgba(0,0,0,.45); }
-  dialog h3 { margin:0 0 4px; }
-  dialog label { display:block; font-weight:600; margin:14px 0 4px; }
-  dialog input { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit; }
-  dialog .note { color:var(--muted); font-size:.85rem; margin:0; }
-  dialog .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
-</style>
+<title>Sayyad Voice Ordering</title>
+<meta name="description" content="Order fish or offer your catch on Sayyad just by speaking.">
+<link rel="icon" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<main>
-  <header>
-    <h1>Sayyad Voice Order</h1>
-    <button id="openSettings" class="ghost">⚙ Settings</button>
-  </header>
-  <p class="sub">Say what you want to buy or sell. Example: “أبغى ١٠٠ كيلو هامور” or “عندي ٢٠٠ كيلو شعور بـ ٢٥ ريال للكيلو”.</p>
 
-  <div class="card">
-    <div class="controls">
-      <button id="record">● Record</button>
-      <label class="file">Upload audio<input id="file" type="file" accept="audio/*"></label>
-      <span id="status">Ready.</span>
+<section class="hero">
+  <img class="hero-photo" src="assets/hero.jpg" alt="" fetchpriority="high">
+  <div class="hero-shade"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-chip"><img src="assets/logo.png" alt="Sayyad"></span>
+      <span class="pilot" data-i18n="pilot">Voice ordering · pilot</span>
+    </div>
+    <div class="top-actions">
+      <button id="langToggle" class="top-btn" type="button" lang="ar">العربية</button>
+      <button id="openSettings" class="top-btn" type="button">
+        <span id="keyDot" class="key-dot" aria-hidden="true"></span>
+        <span data-i18n="settings">Service keys</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="hero-body">
+    <h1 data-i18n="headline">Say it like you would at the harbour.</h1>
+    <p class="lede" data-i18n="lede">Buyers ask for fish and fishermen offer their catch, just by speaking. Sayyad writes down what was said, understands it, and prepares the order.</p>
+
+    <div class="mic-wrap">
+      <button id="mic" class="mic" type="button" aria-describedby="micLabel">
+        <span class="mic-ring" aria-hidden="true"></span>
+        <svg class="icon-mic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15Zm6.5-3.5a.9.9 0 1 0-1.8 0 4.7 4.7 0 0 1-9.4 0 .9.9 0 1 0-1.8 0 6.5 6.5 0 0 0 5.6 6.44V20H8.5a.9.9 0 1 0 0 1.8h7a.9.9 0 1 0 0-1.8h-2.6v-2.06a6.5 6.5 0 0 0 5.6-6.44Z"/></svg>
+        <svg class="icon-stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>
+        <svg class="icon-wait" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="36 60" stroke-linecap="round"/></svg>
+      </button>
+      <div class="mic-text">
+        <strong id="micLabel" data-i18n="micIdle">Tap to speak</strong>
+        <span id="micHint" data-i18n="micHintIdle">Speak in Arabic or English</span>
+        <label class="upload"><input id="file" type="file" accept="audio/*"><span data-i18n="upload">or upload a voice note</span></label>
+      </div>
     </div>
   </div>
 
-  <div id="results" class="hidden">
-    <div class="card"><h2>1 · Transcript (Whisper)</h2><div id="transcript" class="transcript" dir="auto"></div></div>
-    <div class="card"><h2>2 · Intent (DeepSeek)</h2><span id="intent" class="pill"></span> <span id="reason" style="color:var(--muted)"></span></div>
-    <div class="card"><h2>3 · What we understood</h2><div id="summary"></div></div>
-    <div class="card" id="apiCard"><h2>4 · Backend API request</h2><pre id="api"></pre></div>
-  </div>
+  <canvas id="sea" class="sea" aria-hidden="true"></canvas>
+</section>
+
+<main>
+  <section id="result" class="result" hidden aria-live="polite">
+    <ol class="steps" id="steps">
+      <li data-step="recorded"><span class="step-dot"></span><span data-i18n="stepRecorded">Voice received</span></li>
+      <li data-step="transcribing"><span class="step-dot"></span><span data-i18n="stepTranscribing">Writing down what was said</span></li>
+      <li data-step="understanding"><span class="step-dot"></span><span data-i18n="stepUnderstanding">Understanding the request</span></li>
+      <li data-step="ready"><span class="step-dot"></span><span data-i18n="stepReady">Ready</span></li>
+    </ol>
+
+    <figure id="saidBox" class="said" hidden>
+      <figcaption data-i18n="youSaid">What we heard</figcaption>
+      <blockquote id="said" dir="auto"></blockquote>
+    </figure>
+
+    <article id="outcome" class="outcome" hidden></article>
+  </section>
+
+  <section class="examples" aria-labelledby="examplesTitle">
+    <h2 id="examplesTitle" data-i18n="examplesTitle">Two ways to use it</h2>
+    <div class="cards">
+      <article class="card">
+        <img src="assets/buyer.jpg" alt="" loading="lazy">
+        <div class="card-body">
+          <span class="tag tag-buyer" data-i18n="tagBuyer">For buyers</span>
+          <h3 data-i18n="buyerTitle">Order fish</h3>
+          <p class="card-note" data-i18n="buyerNote">Say which fish you want and how much.</p>
+          <p class="phrase" lang="ar" dir="rtl">“أبغي ١٠٠ كيلو كنعد و٥٠ كيلو شعري”</p>
+          <p class="phrase-tr" data-i18n="buyerTr">“I’d like 100 kg of kingfish and 50 kg of emperor.”</p>
+        </div>
+      </article>
+      <article class="card">
+        <img src="assets/seller.jpg" alt="" loading="lazy">
+        <div class="card-body">
+          <span class="tag tag-seller" data-i18n="tagSeller">For fishermen &amp; suppliers</span>
+          <h3 data-i18n="sellerTitle">Offer your catch</h3>
+          <p class="card-note" data-i18n="sellerNote">Say which fish you have, how much, and your price per kilo.</p>
+          <p class="phrase" lang="ar" dir="rtl">“عندي ٢٠٠ كيلو تونة و٨٠ كيلو هامور، الكيلو بريالين”</p>
+          <p class="phrase-tr" data-i18n="sellerTr">“I have 200 kg of tuna and 80 kg of grouper, 2 rials a kilo.”</p>
+        </div>
+      </article>
+    </div>
+  </section>
 </main>
 
-<dialog id="settings">
+<footer class="foot">
+  <img src="assets/logo.png" alt="" class="foot-logo">
+  <p data-i18n="footer">Sayyad voice ordering is a pilot for review. Recordings are processed by OpenAI (speech to text) and DeepSeek (understanding). Nothing is ordered for real.</p>
+  <p class="credit" data-i18n="credit">Photos: Unsplash</p>
+</footer>
+
+<dialog id="settings" aria-labelledby="settingsTitle">
   <form method="dialog">
-    <h3>Settings</h3>
-    <p class="note">Keys are saved in this browser only and sent straight to OpenAI and DeepSeek.</p>
-    <label for="openaiKey">OpenAI API key (Whisper transcription)</label>
-    <input id="openaiKey" type="password" autocomplete="off" placeholder="sk-...">
-    <label for="deepseekKey">DeepSeek API key (intent + extraction)</label>
-    <input id="deepseekKey" type="password" autocomplete="off" placeholder="sk-...">
-    <label for="deepseekModel">DeepSeek model</label>
-    <input id="deepseekModel" type="text" placeholder="deepseek-flash">
-    <label for="whisperModel">Whisper model</label>
-    <input id="whisperModel" type="text" placeholder="whisper-1">
-    <div class="actions">
-      <button value="cancel" class="ghost" formnovalidate>Cancel</button>
-      <button id="saveSettings" value="save">Save</button>
+    <h2 id="settingsTitle" data-i18n="settingsTitle">Service keys</h2>
+    <p class="dlg-intro" data-i18n="settingsIntro">This demo uses two AI services: OpenAI writes down the speech and DeepSeek understands it. Paste the keys your team shared with you. They are saved on this device only.</p>
+    <label for="openaiKey" data-i18n="openaiLabel">OpenAI key</label>
+    <input id="openaiKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…">
+    <label for="deepseekKey" data-i18n="deepseekLabel">DeepSeek key</label>
+    <input id="deepseekKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-…">
+    <details class="advanced">
+      <summary data-i18n="advanced">Advanced</summary>
+      <label for="deepseekModel" data-i18n="deepseekModelLabel">DeepSeek model</label>
+      <input id="deepseekModel" type="text" spellcheck="false" placeholder="deepseek-flash">
+      <label for="whisperModel" data-i18n="whisperModelLabel">Speech-to-text model</label>
+      <input id="whisperModel" type="text" spellcheck="false" placeholder="whisper-1">
+    </details>
+    <div class="dlg-actions">
+      <button value="cancel" class="btn btn-quiet" formnovalidate data-i18n="cancel">Cancel</button>
+      <button id="saveSettings" value="save" class="btn btn-primary" data-i18n="saveKeys">Save keys</button>
     </div>
   </form>
 </dialog>
 
-<script type="module">
-import { runPipeline } from './pipeline.js';
+<div id="toast" class="toast" role="status" hidden></div>
 
-const $ = (id) => document.getElementById(id);
-const FIELDS = ['openaiKey', 'deepseekKey', 'deepseekModel', 'whisperModel'];
-const EXTENSIONS = { webm: 'webm', ogg: 'ogg', mp4: 'mp4', mpeg: 'mp3', mp3: 'mp3', wav: 'wav', 'x-wav': 'wav', m4a: 'm4a', 'x-m4a': 'm4a' };
-
-function loadSettings() {
-  try { return JSON.parse(localStorage.getItem('sayyadSettings')) || {}; } catch { return {}; }
-}
-
-$('openSettings').onclick = () => {
-  const s = loadSettings();
-  FIELDS.forEach((f) => { $(f).value = s[f] || ''; });
-  $('settings').showModal();
-};
-$('saveSettings').onclick = () => {
-  const s = Object.fromEntries(FIELDS.map((f) => [f, $(f).value.trim()]));
-  try { localStorage.setItem('sayyadSettings', JSON.stringify(s)); } catch {}
-  $('status').textContent = 'Settings saved.';
-};
-if (!loadSettings().openaiKey) $('status').textContent = 'Open Settings to add your API keys.';
-let recorder, chunks = [];
-
-$('record').onclick = async () => {
-  if (recorder && recorder.state === 'recording') return recorder.stop();
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    recorder = new MediaRecorder(stream);
-    chunks = [];
-    recorder.ondataavailable = (e) => chunks.push(e.data);
-    recorder.onstop = () => {
-      stream.getTracks().forEach((t) => t.stop());
-      $('record').textContent = '● Record';
-      $('record').classList.remove('recording');
-      send(new Blob(chunks, { type: recorder.mimeType }));
-    };
-    recorder.start();
-    $('record').textContent = '■ Stop';
-    $('record').classList.add('recording');
-    $('status').textContent = 'Recording… press Stop when done.';
-  } catch (err) {
-    $('status').textContent = 'Microphone unavailable: ' + err.message;
-  }
-};
-
-$('file').onchange = (e) => { if (e.target.files[0]) send(e.target.files[0]); e.target.value = ''; };
-
-async function send(blob) {
-  $('record').disabled = true;
-  $('status').textContent = 'Processing: transcribing, classifying, extracting…';
-  try {
-    const mimeType = (blob.type || 'audio/webm').split(';')[0];
-    const ext = EXTENSIONS[mimeType.split('/')[1]] || 'webm';
-    render(await runPipeline(blob, `recording.${ext}`, mimeType, loadSettings()));
-    $('status').textContent = 'Done.';
-  } catch (err) {
-    $('status').textContent = 'Error: ' + err.message;
-  } finally {
-    $('record').disabled = false;
-  }
-}
-
-function el(tag, text, attrs = {}) { const n = document.createElement(tag); n.textContent = text; Object.assign(n, attrs); return n; }
-
-function render(d) {
-  $('results').classList.remove('hidden');
-  $('transcript').textContent = d.transcript || '(empty)';
-  $('intent').textContent = d.intent;
-  $('intent').className = 'pill ' + d.intent;
-  $('reason').textContent = d.reason || '';
-
-  const s = $('summary');
-  s.replaceChildren();
-  if (d.summary) {
-    s.append(el('p', d.summary.headline, { className: 'headline' }));
-    const ul = el('ul', '');
-    d.summary.lines.forEach((l) => ul.append(el('li', l)));
-    s.append(ul);
-  } else {
-    if (d.incomplete) {
-      s.append(el('p', 'Some details are missing: ' + d.incomplete.join('; ') + '.', { className: 'warn' }));
-    }
-    s.append(el('p', d.message.ar, { dir: 'rtl' }));
-    s.append(el('p', d.message.en));
-  }
-
-  $('apiCard').classList.toggle('hidden', !d.apiRequest);
-  if (d.apiRequest) $('api').textContent = `${d.apiRequest.method} ${d.apiRequest.path}\n\n` + JSON.stringify(d.apiRequest.body, null, 2);
-}
-</script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
