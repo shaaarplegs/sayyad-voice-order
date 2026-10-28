@@ -1,8 +1,12 @@
-// Voice-to-order pipeline: transcribe (OpenAI Whisper) -> classify intent (DeepSeek)
-// -> extract fish sets (DeepSeek) -> build the backend API request.
+// Voice pipeline: transcribe (OpenAI Whisper) -> classify intent (DeepSeek) -> extract or update the
+// draft (DeepSeek) -> validate, calculate and build the API request (plain code, no model).
+import { GAZETTEER_TEXT, resolveLocation } from './oman-locations.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions';
+
+// What each account type may create.
+export const ALLOWED = { buyer: ['order'], seller: ['invoice'], both: ['order', 'invoice'] };
 
 // Keys and models come from the Settings dialog (saved in this browser only).
 let settings = {};
@@ -16,8 +20,8 @@ async function transcribe(audio, filename, mimeType) {
   const form = new FormData();
   form.append('file', audio, filename);
   form.append('model', settings.whisperModel || 'whisper-1');
-  // Vocabulary hint so Whisper spells fish names, units and prices well.
-  form.append('prompt', 'طلب سمك في عمان: كنعد، شعري، هامور، جيذر، عومة، سردين، تونة، كوفر، باغة. كيلو، طن، ريال، بيسة. أبغي أشتري، عندي صيد للبيع.');
+  // Vocabulary hint so Whisper spells fish names, places, units and prices well.
+  form.append('prompt', 'سمك في عمان: كنعد، شعري، هامور، جيذر، عومة، سردين، تونة، كوفر. كيلو، طن، ريال، بيسة. بعت، فاتورة، أبغي، التوصيل إلى العامرات، السيب، بوشر، صحار، صلالة.');
 
   // OpenAI omits CORS headers on invalid-key responses, so the browser reports a network error.
   const res = await fetch(OPENAI_URL, {
@@ -31,7 +35,7 @@ async function transcribe(audio, filename, mimeType) {
   return (await res.json()).text.trim();
 }
 
-async function deepseekJson(systemPrompt, userText) {
+async function deepseekJson(systemPrompt, payload) {
   const res = await fetch(DEEPSEEK_URL, {
     method: 'POST',
     headers: {
@@ -44,7 +48,7 @@ async function deepseekJson(systemPrompt, userText) {
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userText },
+        { role: 'user', content: JSON.stringify(payload) },
       ],
     }),
   });
@@ -53,109 +57,190 @@ async function deepseekJson(systemPrompt, userText) {
   return JSON.parse(content);
 }
 
-const CLASSIFY_PROMPT = `You classify voice messages on Sayyad, a fish marketplace in Oman.
-The message is a transcript, usually in Arabic (often Omani or Gulf dialect), sometimes English.
+const CLASSIFY_PROMPT = `You read voice messages sent to Sayyad, a fish marketplace in Oman, and decide what the speaker wants.
+Messages are transcripts, usually Arabic (often Omani dialect), sometimes English.
+You receive JSON: {"transcript": "...", "openDraft": null or the draft order/invoice the speaker is still completing}.
 
-Classify the speaker's intent as exactly one of:
-- "buyer": wants to buy / order fish (e.g. "أبغي ١٠٠ كيلو كنعد", "I want 50 kg of tuna").
-- "seller": has fish to sell / is offering fish, usually with a price (e.g. "عندي ٢٠٠ كيلو شعري بريال ونص للكيلو").
-- "unrelated": not about buying or selling fish, empty, garbled, or too unclear to tell.
+Pick exactly one intent:
+- "create_invoice": a seller is billing a buyer for fish: they sold it, are selling it, or are closing a deal
+  (e.g. "بعت لأحمد ٢٠٠ كيلو تونة بريالين الكيلو", "I just sold 3 tons of sardines to Ali at 300 baisa a kilo", "سوي فاتورة").
+  A seller listing fish they caught or have for sale also counts (e.g. "صدت اليوم ٢٠٠ كيلو كنعد", "عندي ٥٠ كيلو هامور"); missing prices are asked for later.
+- "create_order": a buyer wants to get fish (e.g. "أبغي ١٠٠ كيلو كنعد توصل العامرات", "I need 50 kg of tuna in Seeb").
+- "continue": only when openDraft is not null and the message adds or corrects details of that draft
+  (a missing price, quantity, fish or delivery place, e.g. "التونة بريالين", "وصلها السيب", "خلها ٣٠٠ كيلو", "the grouper was 3 rials"),
+  instead of starting a different request.
+- "unrelated": anything else: not about buying or selling fish, empty, garbled, or too unclear.
 
-Reply with JSON only: {"intent": "buyer" | "seller" | "unrelated", "reason": "<one short English sentence>"}`;
+Reply with JSON only: {"intent": "create_invoice" | "create_order" | "continue" | "unrelated", "reason": "<one short English sentence>"}`;
 
-const FISH_SET_RULES = `A "fish set" is one fish type with its quantity.
-Rules:
-- fishType: the fish name as spoken, in its original language (e.g. "هامور"). Put an English name in fishTypeEn if you know it, else null.
-- quantityKg: a number in kilograms. Convert tons to kg (1 طن = 1000 kg). Arabic-Indic digits and spoken numbers must become numbers.
-- If a value was not mentioned, use null. Never invent values.
-- One entry per fish type mentioned, in the order spoken.`;
+const MERGE_RULES = `You receive JSON: {"transcript": "...", "currentDraft": null or the draft so far}.
+If currentDraft is given, the message adds to or corrects it: keep every existing item and value, fill in what the
+message supplies, apply corrections, and add any new fish. Return the whole updated draft, not just the changes.`;
 
-const EXTRACT_PROMPTS = {
-  buyer: `You extract a buyer's fish order from a transcript on Sayyad, a fish marketplace.
-${FISH_SET_RULES}
-Buyers do not give prices.
+const NUMBER_RULES = `- Arabic-Indic digits and spoken numbers become numbers ("ميتين" = 200, "ألف" = 1000, "طنين" = 2 tons).
+- Never invent a value. Anything that was not said is null.`;
 
-Reply with JSON only, following this schema exactly:
-{"fishSets": [{"fishType": string, "fishTypeEn": string | null, "quantityKg": number | null}]}`,
+const FISH_RULES = `- fishName: the fish as spoken, in its original language (e.g. "تونة"). fishNameEn: its English name if you know it, else null.
+- quantity + quantityUnit: the amount as a number with "kg" or "ton" (طن = ton). Do not convert units.`;
 
-  seller: `You extract a seller's fish offer from a transcript on Sayyad, a fish marketplace.
-${FISH_SET_RULES}
-- pricePerKg: the price in Omani rials (OMR) per kilogram, as a number. 1 rial = 1000 baisa (بيسة), so 500 baisa = 0.5. "ريال ونص" = 1.5.
-- If one price is given for several fish types ("both for 2.2 riyal"), apply it to each of them.
-- If the price is clearly a total for a fish set rather than per kg, divide it by that set's quantity.
+const INVOICE_PROMPT = `You turn a seller's voice message into an invoice draft for Sayyad, a fish marketplace in Oman.
+${MERGE_RULES}
 
-Reply with JSON only, following this schema exactly:
-{"fishSets": [{"fishType": string, "fishTypeEn": string | null, "quantityKg": number | null, "pricePerKg": number | null}]}`,
-};
+An invoice is a list of fish sets, one per fish sold. For each fish set:
+${FISH_RULES}
+- price + priceUnit: the price in Omani rials (OMR) as a number, with "per_kg" (the usual case), "per_ton", or "total"
+  (a lump sum for that fish set). 1 rial = 1000 baisa (بيسة), so "٥٠٠ بيسة" = 0.5; "ريال ونص" = 1.5; "ريالين" = 2.
+  If one price is said for several fish ("كلهم بريالين", "both for 2.2"), give it to each of those fish, per kg.
+  A price without a unit is per kg. Use "total" only for a clear lump sum for the whole fish set ("الكل بأربعمية",
+  "the lot for 400 rials"), usually far larger than a per-kg price (fish costs roughly 0.2 to 10 OMR per kg).
+Also:
+- buyerName: who the fish was sold to, if said ("بعت لأحمد" -> "أحمد"), else null.
+${NUMBER_RULES}
 
-const UNRELATED_MESSAGE = {
-  ar: 'عذرًا، لم نفهم طلبك. ربما لم يكن الصوت واضحًا، أو أن الرسالة لا تتعلق بشراء أو بيع السمك. حاول مرة أخرى واذكر نوع السمك والكمية، وإذا كنت بائعًا اذكر السعر أيضًا.',
-  en: 'Sorry, we could not understand your request. The audio may have been unclear, or the message may not be about buying or selling fish. Please try again and say the fish type and quantity, plus your price if you are selling.',
-};
+Reply with JSON only:
+{"buyerName": string | null, "items": [{"fishName": string | null, "fishNameEn": string | null, "quantity": number | null, "quantityUnit": "kg" | "ton" | null, "price": number | null, "priceUnit": "per_kg" | "per_ton" | "total" | null}]}`;
 
-function missingFields(role, fishSets) {
-  const required = role === 'seller' ? ['fishType', 'quantityKg', 'pricePerKg'] : ['fishType', 'quantityKg'];
-  const problems = [];
-  if (!Array.isArray(fishSets) || fishSets.length === 0) return [{ fishType: null, field: 'fishType' }];
-  fishSets.forEach((set) => {
-    for (const field of required) {
-      if (set[field] === null || set[field] === undefined || set[field] === '') {
-        problems.push({ fishType: set.fishType || null, field });
-      }
+const ORDER_PROMPT = `You turn a buyer's voice message into an order draft for Sayyad, a fish marketplace in Oman.
+${MERGE_RULES}
+
+An order is a delivery location plus a list of fish with quantities. Buyers do not give prices. For each fish:
+${FISH_RULES}
+Delivery location:
+- location.spoken: the place as said. location.wilayat and location.governorate: exact English names from the list below, or null.
+- A wilayat always belongs to one governorate; give both. "مسقط" / "Muscat" is both a governorate and a wilayat: return "Muscat" for both.
+- A town or neighbourhood inside a wilayat (e.g. "الخوض" in As Seeb, "القرم" in Bawshar) maps to that wilayat.
+- If no place was said, location is null (or stays as in currentDraft).
+${NUMBER_RULES}
+
+Governorates and wilayats of Oman:
+${GAZETTEER_TEXT}
+
+Reply with JSON only:
+{"location": {"spoken": string, "wilayat": string | null, "governorate": string | null} | null, "items": [{"fishName": string | null, "fishNameEn": string | null, "quantity": number | null, "quantityUnit": "kg" | "ton" | null}]}`;
+
+const round3 = (n) => Math.round((n + Number.EPSILON) * 1000) / 1000;
+const positive = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+
+// Unify units (tons -> kg, price -> OMR per kg) and list what each fish set is missing.
+function evaluateItem(raw, type) {
+  const quantity = positive(raw.quantity);
+  const item = {
+    fishName: raw.fishName || null,
+    fishNameEn: raw.fishNameEn || null,
+    quantityKg: quantity === null ? null : quantity * (raw.quantityUnit === 'ton' ? 1000 : 1),
+    missing: [],
+  };
+  if (!item.fishName) item.missing.push('fishName');
+  if (item.quantityKg === null) item.missing.push('quantity');
+  if (type === 'invoice') {
+    const price = positive(raw.price);
+    if (price === null) item.missing.push('price');
+    if (price !== null && raw.priceUnit !== 'total') item.pricePerKg = raw.priceUnit === 'per_ton' ? price / 1000 : price;
+    if (price !== null && item.quantityKg !== null) {
+      if (raw.priceUnit === 'total') item.pricePerKg = price / item.quantityKg;
+      item.lineTotal = round3(raw.priceUnit === 'total' ? price : item.quantityKg * item.pricePerKg);
     }
-  });
-  return problems;
+  }
+  return item;
 }
 
-function buildApiRequest(role, fishSets) {
-  if (role === 'buyer') {
+// Decide whether a draft is ready, what is missing, the totals, and the API request once ready.
+export function evaluateDraft(draft) {
+  const items = (draft.items || []).map((raw) => evaluateItem(raw, draft.type));
+  const missing = items.flatMap((item, index) => item.missing.map((field) => ({ index, fishName: item.fishName, field })));
+  if (!items.length) missing.push({ index: null, fishName: null, field: 'items' });
+
+  let location = null;
+  if (draft.type === 'order') {
+    location = resolveLocation(draft.location || {});
+    if (!location) missing.push({ index: null, fishName: null, field: 'location', spoken: draft.location?.spoken || null });
+  }
+
+  const complete = items.filter((item) => !item.missing.length);
+  const totalKg = complete.reduce((sum, item) => sum + item.quantityKg, 0);
+  const total = draft.type === 'invoice' ? round3(complete.reduce((sum, item) => sum + item.lineTotal, 0)) : null;
+  const ready = missing.length === 0;
+
+  return {
+    status: ready ? 'ready' : 'needs_details',
+    items,
+    missing,
+    completeCount: complete.length,
+    location,
+    buyerName: draft.buyerName || null,
+    totalKg,
+    total,
+    // Some fish sets are complete and the rest is not: the user may finish with the complete ones only.
+    canUseCompleteOnly: !ready && complete.length > 0 && complete.length < items.length && (draft.type === 'invoice' || Boolean(location)),
+    apiRequest: ready ? buildApiRequest(draft.type, items, location, draft.buyerName || null, total) : null,
+  };
+}
+
+// The same draft with only its complete fish sets, for "finish with the complete items".
+export function completeOnly(draft) {
+  return { ...draft, items: draft.items.filter((raw) => !evaluateItem(raw, draft.type).missing.length) };
+}
+
+function buildApiRequest(type, items, location, buyerName, total) {
+  if (type === 'order') {
     return {
       method: 'POST',
       path: '/api/v1/orders',
       body: {
         buyerId: '<BUYER_ID>',
         source: 'voice',
-        fishSets: fishSets.map(({ fishType, fishTypeEn, quantityKg }) => ({ fishType, fishTypeEn, quantityKg })),
+        deliveryLocation: { governorate: location.governorate, wilayat: location.wilayat, lat: location.lat, lng: location.lng },
+        items: items.map(({ fishName, fishNameEn, quantityKg }) => ({ fishName, fishNameEn, quantityKg })),
       },
     };
   }
   return {
     method: 'POST',
-    path: '/api/v1/offers',
+    path: '/api/v1/invoices',
     body: {
       sellerId: '<SELLER_ID>',
       source: 'voice',
       currency: 'OMR',
-      fishSets: fishSets.map(({ fishType, fishTypeEn, quantityKg, pricePerKg }) => ({ fishType, fishTypeEn, quantityKg, pricePerKg })),
+      buyerName,
+      items: items.map(({ fishName, fishNameEn, quantityKg, pricePerKg, lineTotal }) => ({ fishName, fishNameEn, quantityKg, pricePerKg: round3(pricePerKg), lineTotal })),
+      total,
     },
   };
 }
 
+// Understand one transcript in context: the account type and the draft still being completed (if any).
+// Returns status 'ready' | 'needs_details' | 'not_allowed' | 'unrelated'. On 'not_allowed' and
+// 'unrelated' the open draft comes back unchanged, so the user can still complete it.
+export async function interpret(transcript, { role = 'both', draft = null } = {}, userSettings = settings, onStep = () => {}) {
+  settings = userSettings;
+  if (!transcript) return { transcript, intent: 'unrelated', status: 'unrelated', reason: 'Empty transcript.', draft };
+
+  onStep('understanding');
+  let { intent, reason } = await deepseekJson(CLASSIFY_PROMPT, { transcript, openDraft: draft });
+  if (intent === 'continue' && !draft) intent = 'unrelated';
+  if (!['create_invoice', 'create_order', 'continue'].includes(intent)) {
+    return { transcript, intent: 'unrelated', status: 'unrelated', reason, draft };
+  }
+
+  const type = intent === 'continue' ? draft.type : intent === 'create_order' ? 'order' : 'invoice';
+  if (!ALLOWED[role].includes(type)) return { transcript, intent, type, status: 'not_allowed', reason, draft };
+
+  onStep('extracting');
+  const { type: _type, ...currentDraft } = intent === 'continue' ? draft : {};
+  const out = await deepseekJson(type === 'order' ? ORDER_PROMPT : INVOICE_PROMPT, {
+    transcript,
+    currentDraft: intent === 'continue' ? currentDraft : null,
+  });
+  const next = type === 'order'
+    ? { type, location: out.location || null, items: out.items || [] }
+    : { type, buyerName: out.buyerName || null, items: out.items || [] };
+  return { transcript, intent, reason, type, draft: next, ...evaluateDraft(next) };
+}
+
 // onStep('transcribing' | 'understanding' | 'extracting') lets the UI show progress.
-export async function runPipeline(audio, filename, mimeType, userSettings, onStep = () => {}) {
+export async function runPipeline(audio, filename, mimeType, userSettings, context, onStep = () => {}) {
   settings = userSettings;
   onStep('transcribing');
   const transcript = await transcribe(audio, filename, mimeType);
-  if (!transcript) return { transcript, intent: 'unrelated', reason: 'Empty transcript.', message: UNRELATED_MESSAGE };
-
-  onStep('understanding');
-  const { intent, reason } = await deepseekJson(CLASSIFY_PROMPT, transcript);
-  if (intent !== 'buyer' && intent !== 'seller') {
-    return { transcript, intent: 'unrelated', reason, message: UNRELATED_MESSAGE };
-  }
-
-  onStep('extracting');
-  const { fishSets } = await deepseekJson(EXTRACT_PROMPTS[intent], transcript);
-  const problems = missingFields(intent, fishSets);
-  if (problems.length) {
-    return { transcript, intent, reason, fishSets, incomplete: problems, message: UNRELATED_MESSAGE };
-  }
-
-  return {
-    transcript,
-    intent,
-    reason,
-    fishSets,
-    apiRequest: buildApiRequest(intent, fishSets),
-  };
+  return interpret(transcript, context, userSettings, onStep);
 }

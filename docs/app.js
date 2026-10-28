@@ -1,4 +1,4 @@
-import { runPipeline } from './pipeline.js';
+import { runPipeline, evaluateDraft, completeOnly, ALLOWED } from './pipeline.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -8,7 +8,7 @@ const TEXT = {
     pilot: 'Voice ordering · pilot',
     settings: 'Service keys',
     headline: 'Say it like you would at the harbour.',
-    lede: 'Buyers ask for fish and fishermen offer their catch, just by speaking. Sayyad writes down what was said, understands it, and prepares the order.',
+    lede: 'Buyers order fish and sellers issue invoices, just by speaking. Sayyad writes down what was said, works out the details, and asks for anything missing.',
     micIdle: 'Tap to speak',
     micHintIdle: 'Speak in Arabic or English',
     micRecording: 'Tap when you’re done',
@@ -23,12 +23,12 @@ const TEXT = {
     examplesTitle: 'Two ways to use it',
     tagBuyer: 'For buyers',
     buyerTitle: 'Order fish',
-    buyerNote: 'Say which fish you want and how much.',
-    buyerTr: '“I’d like 100 kg of kingfish and 50 kg of emperor.”',
-    tagSeller: 'For fishermen & suppliers',
-    sellerTitle: 'Offer your catch',
-    sellerNote: 'Say which fish you have, how much, and your price per kilo.',
-    sellerTr: '“I have 200 kg of tuna and 80 kg of grouper, 2 rials a kilo.”',
+    buyerNote: 'Say the fish, how much, and where to deliver.',
+    buyerTr: '“I’d like 100 kg of kingfish and 50 kg of emperor, delivered to Al Amerat.”',
+    tagSeller: 'For sellers',
+    sellerTitle: 'Create an invoice',
+    sellerNote: 'Say what you sold, how much, and the price per kilo.',
+    sellerTr: '“I sold Ahmed 200 kg of tuna at 2 rials a kilo and 80 kg of grouper at 3 rials.”',
     footer: 'Sayyad voice ordering is a pilot for review. Recordings are processed by OpenAI (speech to text) and DeepSeek (understanding). Nothing is ordered for real.',
     credit: 'Photos: Unsplash',
     settingsTitle: 'Service keys',
@@ -42,30 +42,14 @@ const TEXT = {
     saveKeys: 'Save keys',
     keysSaved: 'Keys saved',
     keysNeeded: 'Add the service keys first',
-    buyerBadge: 'Buyer request',
-    buyerHead: 'You’re asking for',
-    sellerBadge: 'Seller offer',
-    sellerHead: 'You’re offering',
     colFish: 'Fish',
     colQty: 'Quantity',
     colPrice: 'Price per kg',
-    colValue: 'Value',
     total: 'Total',
-    buyerNext: 'Sayyad sends this request to suppliers in your region. You then choose the offer that suits you best.',
-    sellerNext: 'Buyers on Sayyad see this offer and can order from it straight away.',
-    unclearHead: 'That didn’t sound like an order',
+    unclearHead: 'We couldn’t understand that request',
     unclearBadge: 'Not understood',
-    incompleteHead: 'Almost there, a detail is missing',
-    incompleteBadge: 'Needs one more detail',
-    tipsTitle: 'Try again and make sure to say:',
-    tipFish: 'the name of the fish',
-    tipQty: 'the quantity, in kilos or tons',
-    tipPrice: 'your price per kilo, if you are selling',
+    tipsTitle: 'Try again and include:',
     tryAgain: 'Record again',
-    missing_fishType: 'Which fish',
-    missing_quantityKg: 'How much',
-    missing_pricePerKg: 'Price per kilo',
-    missingFor: 'for',
     errorHead: 'The demo couldn’t finish',
     errorBadge: 'Problem',
     openSettings: 'Open service keys',
@@ -74,12 +58,68 @@ const TEXT = {
     copy: 'Copy',
     copied: 'Copied',
     micBlocked: 'The browser blocked the microphone. Allow microphone access for this page, or upload a voice note instead.',
+    examplesNote: 'Missed a detail? Record just the missing part; the draft stays open until it is complete.',
+    roleLegend: 'Account type',
+    roleBuyer: 'Buyer',
+    roleSeller: 'Seller',
+    roleBoth: 'Buyer & seller',
+    roleHint_buyer: 'Buyer accounts place orders.',
+    roleHint_seller: 'Seller accounts create invoices.',
+    roleHint_both: 'This account can place orders and create invoices.',
+    micContinue: 'Tap to add the missing details',
+    micHintContinue_invoice: 'Your draft invoice is still open',
+    micHintContinue_order: 'Your draft order is still open',
+    messageN: 'Message {n}',
+    invoiceReadyHead: 'Invoice ready',
+    invoiceBadge: 'Invoice',
+    orderReadyHead: 'Order ready',
+    orderBadge: 'Order',
+    invoiceDraftHead: 'Draft invoice: details missing',
+    orderDraftHead: 'Draft order: details missing',
+    draftBadge: 'Draft',
+    buyerLabel: 'Buyer',
+    deliverTo: 'Deliver to',
+    governorateOf: '{g} Governorate',
+    colLineTotal: 'Line total',
+    invoiceTotal: 'Invoice total',
+    completeTotal: 'Total of complete items',
+    totalWeight: 'Total weight',
+    heardComplete: 'Complete so far: {n} of {total} fish sets.',
+    noneComplete: 'None of the fish sets is complete yet.',
+    stillNeed: 'We still need:',
+    need_price: 'price per kilo',
+    need_quantity: 'quantity',
+    need_fishName: 'fish name',
+    need_location: 'Delivery location (wilayat or governorate)',
+    need_items: 'The fish and quantities',
+    unknownPlace: 'We couldn’t find “{p}” among Oman’s wilayats and governorates.',
+    askMissing: 'Record a short message with just these details. You don’t need to repeat the rest.',
+    recordMissing: 'Record missing details',
+    useComplete_invoice: 'Create invoice with complete items only ({n})',
+    useComplete_order: 'Place order with complete items only ({n})',
+    startOver: 'Start over',
+    newRequest: 'Start a new request',
+    missingChip_price: 'Price missing',
+    missingChip_quantity: 'Quantity missing',
+    missingChip_fishName: 'Fish name missing',
+    missingChip_location: 'Location missing',
+    invoiceNext: 'Calculated in Omani rials and ready to send to the buyer.',
+    orderNext: 'Sayyad sends this order to suppliers in the delivery area, and the buyer chooses from their offers.',
+    notAllowedHead: 'Not available for this account',
+    notAllowedBadge: 'Account type',
+    notAllowed_invoice: 'This sounds like an invoice, but buyer accounts can only place orders. To try it in this demo, switch the account type to Seller or Buyer & seller.',
+    notAllowed_order: 'This sounds like an order, but seller accounts can only create invoices. To try it in this demo, switch the account type to Buyer or Buyer & seller.',
+    draftStillOpen_invoice: 'Your draft invoice is still open. Record the missing details to finish it.',
+    draftStillOpen_order: 'Your draft order is still open. Record the missing details to finish it.',
+    unclearText: 'We couldn’t turn that into an order or an invoice. The audio may have been unclear, or the message may not be about buying or selling fish.',
+    tipOrder: 'To order: the fish, how much, and the delivery wilayat',
+    tipInvoice: 'For an invoice: the fish you sold, how much, and the price per kilo',
   },
   ar: {
     pilot: 'الطلب بالصوت · نسخة تجريبية',
     settings: 'مفاتيح الخدمة',
     headline: 'قلها كما تقولها في الميناء.',
-    lede: 'يطلب المشتري السمك ويعرض الصياد صيده بصوته فقط. صياد يكتب ما قيل ويفهمه ويجهّز الطلب.',
+    lede: 'يطلب المشتري السمك ويصدر البائع فاتورته بصوته فقط. صياد يكتب ما قيل ويفهم التفاصيل ويسأل عن أي شيء ناقص.',
     micIdle: 'اضغط وتكلّم',
     micHintIdle: 'تكلّم بالعربية أو الإنجليزية',
     micRecording: 'اضغط عند الانتهاء',
@@ -94,11 +134,11 @@ const TEXT = {
     examplesTitle: 'طريقتان للاستخدام',
     tagBuyer: 'للمشترين',
     buyerTitle: 'اطلب سمك',
-    buyerNote: 'قل نوع السمك الذي تريده والكمية.',
+    buyerNote: 'قل نوع السمك والكمية ومكان التوصيل.',
     buyerTr: '',
-    tagSeller: 'للصيادين والموردين',
-    sellerTitle: 'اعرض صيدك',
-    sellerNote: 'قل نوع السمك الذي عندك والكمية وسعر الكيلو.',
+    tagSeller: 'للبائعين',
+    sellerTitle: 'أنشئ فاتورة',
+    sellerNote: 'قل ما بعته والكمية وسعر الكيلو.',
     sellerTr: '',
     footer: 'الطلب بالصوت في صياد نسخة تجريبية للمراجعة. تتم معالجة التسجيلات عبر OpenAI (تحويل الكلام إلى نص) وDeepSeek (فهم الطلب). لا يتم تنفيذ أي طلب فعلي.',
     credit: 'الصور: Unsplash',
@@ -113,30 +153,14 @@ const TEXT = {
     saveKeys: 'حفظ المفاتيح',
     keysSaved: 'تم حفظ المفاتيح',
     keysNeeded: 'أضف مفاتيح الخدمة أولًا',
-    buyerBadge: 'طلب شراء',
-    buyerHead: 'أنت تطلب',
-    sellerBadge: 'عرض بيع',
-    sellerHead: 'أنت تعرض',
     colFish: 'السمك',
     colQty: 'الكمية',
     colPrice: 'سعر الكيلو',
-    colValue: 'القيمة',
     total: 'المجموع',
-    buyerNext: 'يرسل صياد هذا الطلب إلى الموردين في منطقتك، ثم تختار العرض الأنسب لك.',
-    sellerNext: 'يرى المشترون في صياد هذا العرض ويمكنهم الطلب منه مباشرة.',
-    unclearHead: 'لم يبدُ هذا كطلب',
+    unclearHead: 'لم نفهم هذا الطلب',
     unclearBadge: 'لم يُفهم',
-    incompleteHead: 'اقتربنا، تنقص معلومة',
-    incompleteBadge: 'تنقص معلومة',
-    tipsTitle: 'حاول مرة أخرى واحرص على ذكر:',
-    tipFish: 'اسم السمك',
-    tipQty: 'الكمية بالكيلو أو الطن',
-    tipPrice: 'سعر الكيلو إذا كنت بائعًا',
+    tipsTitle: 'حاول مرة أخرى واذكر:',
     tryAgain: 'سجّل مرة أخرى',
-    missing_fishType: 'نوع السمك',
-    missing_quantityKg: 'الكمية',
-    missing_pricePerKg: 'سعر الكيلو',
-    missingFor: 'لـ',
     errorHead: 'تعذّر إكمال العرض',
     errorBadge: 'مشكلة',
     openSettings: 'فتح مفاتيح الخدمة',
@@ -145,11 +169,68 @@ const TEXT = {
     copy: 'نسخ',
     copied: 'تم النسخ',
     micBlocked: 'منع المتصفح الوصول إلى الميكروفون. اسمح بالوصول لهذه الصفحة، أو ارفع رسالة صوتية بدلًا من ذلك.',
+    examplesNote: 'نسيت تفصيلًا؟ سجّل الجزء الناقص فقط، وتبقى المسودة مفتوحة حتى تكتمل.',
+    roleLegend: 'نوع الحساب',
+    roleBuyer: 'مشتري',
+    roleSeller: 'بائع',
+    roleBoth: 'مشتري وبائع',
+    roleHint_buyer: 'حساب المشتري ينشئ طلبات.',
+    roleHint_seller: 'حساب البائع ينشئ فواتير.',
+    roleHint_both: 'هذا الحساب ينشئ طلبات وفواتير.',
+    micContinue: 'اضغط لإضافة التفاصيل الناقصة',
+    micHintContinue_invoice: 'مسودة الفاتورة ما زالت مفتوحة',
+    micHintContinue_order: 'مسودة الطلب ما زالت مفتوحة',
+    messageN: 'الرسالة {n}',
+    invoiceReadyHead: 'الفاتورة جاهزة',
+    invoiceBadge: 'فاتورة',
+    orderReadyHead: 'الطلب جاهز',
+    orderBadge: 'طلب',
+    invoiceDraftHead: 'مسودة فاتورة: تنقص بعض التفاصيل',
+    orderDraftHead: 'مسودة طلب: تنقص بعض التفاصيل',
+    draftBadge: 'مسودة',
+    buyerLabel: 'المشتري',
+    deliverTo: 'التوصيل إلى',
+    governorateOf: 'محافظة {g}',
+    colLineTotal: 'المجموع',
+    invoiceTotal: 'إجمالي الفاتورة',
+    completeTotal: 'مجموع الأصناف المكتملة',
+    totalWeight: 'إجمالي الوزن',
+    heardComplete: 'المكتمل حتى الآن: {n} من {total}.',
+    noneComplete: 'لا يوجد صنف مكتمل بعد.',
+    stillNeed: 'ما زلنا نحتاج:',
+    need_price: 'سعر الكيلو',
+    need_quantity: 'الكمية',
+    need_fishName: 'اسم السمك',
+    need_location: 'مكان التوصيل (الولاية أو المحافظة)',
+    need_items: 'نوع السمك والكمية',
+    unknownPlace: 'لم نجد «{p}» ضمن ولايات ومحافظات سلطنة عمان.',
+    askMissing: 'سجّل رسالة قصيرة بهذه التفاصيل فقط، ولا داعي لإعادة الباقي.',
+    recordMissing: 'سجّل التفاصيل الناقصة',
+    useComplete_invoice: 'أنشئ الفاتورة بالأصناف المكتملة ({n})',
+    useComplete_order: 'أرسل الطلب بالأصناف المكتملة ({n})',
+    startOver: 'ابدأ من جديد',
+    newRequest: 'ابدأ طلبًا جديدًا',
+    missingChip_price: 'السعر ناقص',
+    missingChip_quantity: 'الكمية ناقصة',
+    missingChip_fishName: 'اسم السمك ناقص',
+    missingChip_location: 'المكان ناقص',
+    invoiceNext: 'محسوبة بالريال العماني وجاهزة للإرسال إلى المشتري.',
+    orderNext: 'يرسل صياد هذا الطلب إلى الموردين في منطقة التوصيل، ويختار المشتري من عروضهم.',
+    notAllowedHead: 'غير متاح لهذا الحساب',
+    notAllowedBadge: 'نوع الحساب',
+    notAllowed_invoice: 'يبدو هذا فاتورة، لكن حساب المشتري ينشئ طلبات فقط. لتجربته في هذا العرض، غيّر نوع الحساب إلى بائع أو مشتري وبائع.',
+    notAllowed_order: 'يبدو هذا طلبًا، لكن حساب البائع ينشئ فواتير فقط. لتجربته في هذا العرض، غيّر نوع الحساب إلى مشتري أو مشتري وبائع.',
+    draftStillOpen_invoice: 'مسودة الفاتورة ما زالت مفتوحة. سجّل التفاصيل الناقصة لإكمالها.',
+    draftStillOpen_order: 'مسودة الطلب ما زالت مفتوحة. سجّل التفاصيل الناقصة لإكماله.',
+    unclearText: 'لم نتمكن من تحويل ذلك إلى طلب أو فاتورة. ربما لم يكن الصوت واضحًا، أو أن الرسالة لا تتعلق بشراء أو بيع السمك.',
+    tipOrder: 'للطلب: نوع السمك والكمية وولاية التوصيل',
+    tipInvoice: 'للفاتورة: السمك الذي بعته والكمية وسعر الكيلو',
   },
 };
 
 let lang = storage('sayyadLang') || 'en';
 const t = (key) => TEXT[lang][key] ?? TEXT.en[key];
+const tf = (key, vars) => Object.entries(vars).reduce((s, [k, v]) => s.replaceAll(`{${k}}`, v), t(key));
 
 function storage(key, value) {
   try {
@@ -165,7 +246,9 @@ function applyLang() {
   $('langToggle').textContent = lang === 'ar' ? 'English' : 'العربية';
   $('langToggle').lang = lang === 'ar' ? 'en' : 'ar';
   setMic(micState);
-  if (lastResult) renderOutcome(lastResult);
+  applyRole();
+  renderThread();
+  if (session.last) renderOutcome(session.last);
 }
 
 $('langToggle').onclick = () => {
@@ -199,6 +282,20 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { $('toast').hidden = true; }, 2200);
 }
+
+// ---------- Account type (stands in for the signed-in account's role) ----------
+let role = storage('sayyadRole') || 'both';
+const roleInputs = document.querySelectorAll('input[name="role"]');
+
+function applyRole() {
+  roleInputs.forEach((input) => { input.checked = input.value === role; });
+  $('roleHint').textContent = t('roleHint_' + role);
+}
+roleInputs.forEach((input) => input.addEventListener('change', () => {
+  role = input.value;
+  storage('sayyadRole', role);
+  applyRole();
+}));
 
 // ---------- Sea line (signature): calm waves, driven by the voice while recording ----------
 const sea = $('sea');
@@ -258,9 +355,10 @@ function setMic(state) {
   mic.classList.toggle('busy', state === 'busy');
   mic.disabled = state === 'busy';
   $('file').disabled = state !== 'idle';
-  const label = { idle: 'micIdle', recording: 'micRecording', busy: 'micBusy' }[state];
+  const continuing = state === 'idle' && session.draft;
+  const label = continuing ? 'micContinue' : { idle: 'micIdle', recording: 'micRecording', busy: 'micBusy' }[state];
   $('micLabel').textContent = t(label);
-  if (state === 'idle') $('micHint').textContent = t('micHintIdle');
+  if (state === 'idle') $('micHint').textContent = continuing ? t('micHintContinue_' + session.draft.type) : t('micHintIdle');
   if (state === 'busy') $('micHint').textContent = t('micBusyHint');
   mic.setAttribute('aria-label', t(label));
 }
@@ -314,7 +412,10 @@ $('file').onchange = (e) => {
 // ---------- Pipeline + results ----------
 const EXTENSIONS = { webm: 'webm', ogg: 'ogg', mp4: 'mp4', mpeg: 'mp3', mp3: 'mp3', wav: 'wav', 'x-wav': 'wav', m4a: 'm4a', 'x-m4a': 'm4a' };
 const STEP_ORDER = ['recorded', 'transcribing', 'understanding', 'ready'];
-let lastResult = null;
+
+// One conversation: what was said so far, the draft still being completed, and the latest result.
+const newSession = () => ({ turns: [], draft: null, last: null, done: false });
+let session = newSession();
 
 function setStep(step, failed = false) {
   const idx = STEP_ORDER.indexOf(step);
@@ -323,11 +424,22 @@ function setStep(step, failed = false) {
   });
 }
 
+const toTop = () => scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+
+function resetSession() {
+  session = newSession();
+  $('result').hidden = true;
+  setMic('idle');
+  toTop();
+}
+
 async function process(blob) {
+  if (session.done) {
+    session = newSession();
+    renderThread();
+  }
   setMic('busy');
-  lastResult = null;
   $('result').hidden = false;
-  $('saidBox').hidden = true;
   $('outcome').hidden = true;
   setStep('transcribing');
   $('result').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
@@ -336,16 +448,20 @@ async function process(blob) {
   const ext = EXTENSIONS[mimeType.split('/')[1]] || 'webm';
   let current = 'transcribing';
   try {
-    const result = await runPipeline(blob, `recording.${ext}`, mimeType, loadSettings(), (s) => {
+    const result = await runPipeline(blob, `recording.${ext}`, mimeType, loadSettings(), { role, draft: session.draft }, (s) => {
       current = s === 'extracting' ? 'understanding' : s;
       setStep(current);
     });
-    if (result.transcript) {
-      $('said').textContent = result.transcript;
-      $('saidBox').hidden = false;
+    session.turns.push(result.transcript);
+    session.last = result;
+    if (result.status === 'ready') {
+      session.draft = null;
+      session.done = true;
+    } else if (result.status === 'needs_details') {
+      session.draft = result.draft;
     }
     setStep('ready');
-    lastResult = result;
+    renderThread();
     renderOutcome(result);
   } catch (err) {
     setStep(current, true);
@@ -364,6 +480,18 @@ const el = (tag, cls, text) => {
 const locale = () => (lang === 'ar' ? 'ar-OM' : 'en-OM');
 const kg = (n) => new Intl.NumberFormat(locale(), { style: 'unit', unit: 'kilogram', maximumFractionDigits: 2 }).format(n);
 const omr = (n) => new Intl.NumberFormat(locale(), { style: 'currency', currency: 'OMR', minimumFractionDigits: 3 }).format(n);
+const chip = (field) => el('span', 'chip-missing', t('missingChip_' + field));
+
+function renderThread() {
+  $('said').replaceChildren(...session.turns.map((text, i) => {
+    const li = el('li');
+    const said = el('span', 'said-text', text || '—');
+    said.dir = 'auto';
+    li.append(el('span', 'said-n', tf('messageN', { n: i + 1 })), said);
+    return li;
+  }));
+  $('saidBox').hidden = !session.turns.length;
+}
 
 function head(title, badge, warn) {
   const h = el('header', 'outcome-head' + (warn ? ' warn' : ''));
@@ -371,10 +499,45 @@ function head(title, badge, warn) {
   return h;
 }
 
-function fishCell(set) {
+function button(label, cls, onClick) {
+  const b = el('button', 'btn ' + cls, label);
+  b.type = 'button';
+  b.onclick = onClick;
+  return b;
+}
+
+function actions(...buttons) {
+  const div = el('div', 'outcome-actions');
+  div.append(...buttons);
+  return div;
+}
+
+const recordButton = () => button(t('recordMissing'), 'btn-primary', () => { toTop(); $('mic').click(); });
+const startOverButton = () => button(t('startOver'), 'btn-quiet', resetSession);
+const newRequestButton = () => button(t('newRequest'), 'btn-quiet', resetSession);
+const tryAgainButton = () => button(t('tryAgain'), 'btn-primary', () => { toTop(); $('mic').focus({ preventScroll: true }); });
+
+function useCompleteButton(r) {
+  return button(tf('useComplete_' + r.type, { n: r.completeCount }), 'btn-quiet', () => {
+    const draft = completeOnly(r.draft);
+    const done = { ...r, draft, ...evaluateDraft(draft) };
+    session.draft = null;
+    session.done = true;
+    session.last = done;
+    setMic('idle');
+    renderOutcome(done);
+  });
+}
+
+function fishCell(item) {
   const td = el('td');
-  const primary = lang === 'en' && set.fishTypeEn ? set.fishTypeEn : set.fishType;
-  const alt = primary === set.fishType ? (lang === 'en' ? null : set.fishTypeEn) : set.fishType;
+  if (!item.fishName) {
+    td.append(chip('fishName'));
+    return td;
+  }
+  const primary = lang === 'en' && item.fishNameEn ? item.fishNameEn : item.fishName;
+  let alt = primary === item.fishName ? (lang === 'en' ? null : item.fishNameEn) : item.fishName;
+  if (alt && alt.toLowerCase() === primary.toLowerCase()) alt = null;
   const name = el('span', 'fish-name', primary);
   name.dir = 'auto';
   td.append(name);
@@ -382,68 +545,134 @@ function fishCell(set) {
   return td;
 }
 
+function valueCell(item, field, value, format) {
+  const td = el('td', 'num');
+  if (item.missing.includes(field)) td.append(chip(field));
+  else td.textContent = value === undefined || value === null ? '—' : format(value);
+  return td;
+}
+
+function itemsTable(r) {
+  const invoice = r.type === 'invoice';
+  const table = el('table', 'lines');
+  const hr = el('tr');
+  hr.append(el('th', '', t('colFish')), el('th', 'num', t('colQty')));
+  if (invoice) hr.append(el('th', 'num', t('colPrice')), el('th', 'num', t('colLineTotal')));
+  table.appendChild(el('thead')).append(hr);
+
+  const body = table.appendChild(el('tbody'));
+  for (const item of r.items) {
+    const tr = el('tr', item.missing.length ? 'incomplete' : '');
+    tr.append(fishCell(item), valueCell(item, 'quantity', item.quantityKg, kg));
+    if (invoice) tr.append(valueCell(item, 'price', item.pricePerKg, omr), el('td', 'num', item.lineTotal != null ? omr(item.lineTotal) : '—'));
+    body.append(tr);
+  }
+
+  const fr = el('tr');
+  const totalKg = r.completeCount ? kg(r.totalKg) : '—';
+  if (invoice) {
+    fr.append(el('td', '', t(r.status === 'ready' ? 'invoiceTotal' : 'completeTotal')), el('td', 'num', totalKg), el('td'),
+      el('td', 'num', r.completeCount ? omr(r.total) : '—'));
+  } else {
+    fr.append(el('td', '', t('totalWeight')), el('td', 'num', totalKg));
+  }
+  table.appendChild(el('tfoot')).append(fr);
+  return table;
+}
+
+// Delivery place for orders, buyer name for invoices.
+function metaLine(r) {
+  const p = el('p', 'meta');
+  if (r.type === 'order') {
+    p.append(el('span', 'meta-label', t('deliverTo') + ':'));
+    if (!r.location) p.append(chip('location'));
+    else {
+      const l = r.location;
+      const wilayat = lang === 'ar' ? l.wilayatAr : l.wilayat;
+      const governorate = tf('governorateOf', { g: lang === 'ar' ? l.governorateAr : l.governorate });
+      p.append(el('span', 'meta-value', wilayat ? wilayat + (lang === 'ar' ? '، ' : ', ') + governorate : governorate));
+    }
+    return p;
+  }
+  if (!r.buyerName) return null;
+  const name = el('span', 'meta-value', r.buyerName);
+  name.dir = 'auto';
+  p.append(el('span', 'meta-label', t('buyerLabel') + ':'), name);
+  return p;
+}
+
 function renderOutcome(r) {
   const box = $('outcome');
   box.replaceChildren();
   box.hidden = false;
 
-  if (r.apiRequest) {
-    const seller = r.intent === 'seller';
-    box.append(head(t(seller ? 'sellerHead' : 'buyerHead'), t(seller ? 'sellerBadge' : 'buyerBadge')));
-
-    const table = el('table', 'lines');
-    const hr = el('tr');
-    hr.append(el('th', '', t('colFish')), el('th', 'num', t('colQty')));
-    if (seller) hr.append(el('th', 'num', t('colPrice')), el('th', 'num', t('colValue')));
-    table.appendChild(el('thead')).append(hr);
-
-    const body = table.appendChild(el('tbody'));
-    let totalKg = 0, totalValue = 0;
-    for (const s of r.fishSets) {
-      const tr = el('tr');
-      tr.append(fishCell(s), el('td', 'num', kg(s.quantityKg)));
-      totalKg += s.quantityKg;
-      if (seller) {
-        const value = s.quantityKg * s.pricePerKg;
-        totalValue += value;
-        tr.append(el('td', 'num', omr(s.pricePerKg)), el('td', 'num', omr(value)));
-      }
-      body.append(tr);
-    }
-    if (r.fishSets.length > 1 || seller) {
-      const fr = el('tr');
-      fr.append(el('td', '', t('total')), el('td', 'num', kg(totalKg)));
-      if (seller) fr.append(el('td'), el('td', 'num', omr(totalValue)));
-      table.appendChild(el('tfoot')).append(fr);
-    }
-    box.append(table);
-
+  if (r.status === 'ready') {
+    const invoice = r.type === 'invoice';
+    box.append(head(t(invoice ? 'invoiceReadyHead' : 'orderReadyHead'), t(invoice ? 'invoiceBadge' : 'orderBadge')));
+    const meta = metaLine(r);
+    if (meta) box.append(meta);
+    box.append(itemsTable(r));
     const next = el('p', 'next');
     next.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z"/></svg>';
-    next.append(el('span', '', t(seller ? 'sellerNext' : 'buyerNext')));
-    box.append(next, techDetails(r.apiRequest));
+    next.append(el('span', '', t(invoice ? 'invoiceNext' : 'orderNext')));
+    box.append(next, techDetails(r.apiRequest), actions(newRequestButton()));
     return;
   }
 
-  const incomplete = Array.isArray(r.incomplete) && r.incomplete.length;
-  box.append(head(t(incomplete ? 'incompleteHead' : 'unclearHead'), t(incomplete ? 'incompleteBadge' : 'unclearBadge'), true));
+  if (r.status === 'needs_details') {
+    box.append(head(t(r.type === 'invoice' ? 'invoiceDraftHead' : 'orderDraftHead'), t('draftBadge'), true));
+    if (r.items.length || r.type === 'order') {
+      const meta = metaLine(r);
+      if (meta) box.append(meta);
+    }
+    if (r.items.length) box.append(itemsTable(r));
+
+    const body = el('div', 'outcome-body');
+    if (r.items.length) body.append(el('p', '', r.completeCount ? tf('heardComplete', { n: r.completeCount, total: r.items.length }) : t('noneComplete')));
+    body.append(el('p', 'strong', t('stillNeed')));
+    const ul = el('ul', 'tips');
+    const perItem = new Map();
+    for (const m of r.missing) {
+      if (m.index === null) {
+        if (m.spoken) ul.append(el('li', '', tf('unknownPlace', { p: m.spoken })));
+        ul.append(el('li', '', t('need_' + m.field)));
+      } else {
+        perItem.set(m.index, [...(perItem.get(m.index) || []), t('need_' + m.field)]);
+      }
+    }
+    for (const [index, needs] of perItem) {
+      const item = r.items[index];
+      const name = item.fishName ? (lang === 'en' && item.fishNameEn ? item.fishNameEn : item.fishName) : `#${index + 1}`;
+      const li = el('li');
+      const strong = el('strong', '', name);
+      strong.dir = 'auto';
+      li.append(strong, document.createTextNode(`: ${needs.join(lang === 'ar' ? '، ' : ', ')}`));
+      ul.append(li);
+    }
+    body.append(ul, el('p', 'muted', t('askMissing')));
+    box.append(body);
+
+    const buttons = [recordButton()];
+    if (r.canUseCompleteOnly) buttons.push(useCompleteButton(r));
+    buttons.push(startOverButton());
+    box.append(actions(...buttons));
+    return;
+  }
+
   const body = el('div', 'outcome-body');
-  if (incomplete) {
-    const ul = el('ul', 'tips');
-    r.incomplete.forEach((m) => ul.append(el('li', '', t('missing_' + m.field) + (m.fishType ? ` ${t('missingFor')} ${m.fishType}` : ''))));
-    body.append(ul);
+  if (r.status === 'not_allowed') {
+    box.append(head(t('notAllowedHead'), t('notAllowedBadge'), true));
+    body.append(el('p', '', t('notAllowed_' + r.type)));
   } else {
-    body.append(el('p', '', r.message[lang]));
-    body.append(el('p', '', t('tipsTitle')));
+    box.append(head(t('unclearHead'), t('unclearBadge'), true));
+    body.append(el('p', '', t('unclearText')), el('p', '', t('tipsTitle')));
     const ul = el('ul', 'tips');
-    ['tipFish', 'tipQty', 'tipPrice'].forEach((k) => ul.append(el('li', '', t(k))));
+    if (ALLOWED[role].includes('order')) ul.append(el('li', '', t('tipOrder')));
+    if (ALLOWED[role].includes('invoice')) ul.append(el('li', '', t('tipInvoice')));
     body.append(ul);
   }
-  const again = el('button', 'btn btn-primary', t('tryAgain'));
-  again.type = 'button';
-  again.onclick = () => { scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' }); $('mic').focus({ preventScroll: true }); };
-  body.append(again);
-  box.append(body);
+  if (r.draft) body.append(el('p', 'muted', t('draftStillOpen_' + r.draft.type)));
+  box.append(body, actions(...(r.draft ? [recordButton(), startOverButton()] : [tryAgainButton()])));
 }
 
 function techDetails(req) {
@@ -478,7 +707,6 @@ function showError(message) {
     body.append(b);
   }
   box.append(body);
-  lastResult = null;
 }
 
 refreshKeyDot();
