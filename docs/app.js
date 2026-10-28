@@ -24,11 +24,11 @@ const TEXT = {
     tagBuyer: 'For buyers',
     buyerTitle: 'Order fish',
     buyerNote: 'Say the fish, how much, and where to deliver.',
-    buyerTr: '“I’d like 100 kg of kingfish and 50 kg of emperor, delivered to Al Amerat.”',
+    buyerTr: '“I’d like 100 kg of king fish and 50 kg of sharry, delivered to Al Amerat.”',
     tagSeller: 'For sellers',
     sellerTitle: 'Create an invoice',
     sellerNote: 'Say what you sold, how much, and the price per kilo.',
-    sellerTr: '“I sold Ahmed 200 kg of tuna at 2 rials a kilo and 80 kg of grouper at 3 rials.”',
+    sellerTr: '“I sold Ahmed 200 kg of yellowfin tuna at 2 rials a kilo and 80 kg of hamour at 3 rials.”',
     footer: 'Sayyad voice ordering is a pilot for review. Recordings are processed by OpenAI (speech to text) and DeepSeek (understanding). Nothing is ordered for real.',
     credit: 'Photos: Unsplash',
     settingsTitle: 'Service keys',
@@ -89,7 +89,9 @@ const TEXT = {
     stillNeed: 'We still need:',
     need_price: 'price per kilo',
     need_quantity: 'quantity',
-    need_fishName: 'fish name',
+    need_fish_choose: 'which fish exactly: {list}',
+    need_fish_unknown: 'not on Sayyad’s fish list; say a fish from the list',
+    need_size: 'size: {list}',
     need_location: 'Delivery location (wilayat or governorate)',
     need_items: 'The fish and quantities',
     unknownPlace: 'We couldn’t find “{p}” among Oman’s wilayats and governorates.',
@@ -101,7 +103,12 @@ const TEXT = {
     newRequest: 'Start a new request',
     missingChip_price: 'Price missing',
     missingChip_quantity: 'Quantity missing',
-    missingChip_fishName: 'Fish name missing',
+    missingChip_fish: 'Which fish?',
+    missingChip_size: 'Which size?',
+    size_Small: 'Small',
+    size_Medium: 'Medium',
+    size_Large: 'Large',
+    sizeDefault: '(default)',
     missingChip_location: 'Location missing',
     invoiceNext: 'Calculated in Omani rials and ready to send to the buyer.',
     orderNext: 'Sayyad sends this order to suppliers in the delivery area, and the buyer chooses from their offers.',
@@ -200,7 +207,9 @@ const TEXT = {
     stillNeed: 'ما زلنا نحتاج:',
     need_price: 'سعر الكيلو',
     need_quantity: 'الكمية',
-    need_fishName: 'اسم السمك',
+    need_fish_choose: 'أي نوع بالضبط: {list}',
+    need_fish_unknown: 'ليس ضمن قائمة أسماك صياد؛ اذكر سمكًا من القائمة',
+    need_size: 'الحجم: {list}',
     need_location: 'مكان التوصيل (الولاية أو المحافظة)',
     need_items: 'نوع السمك والكمية',
     unknownPlace: 'لم نجد «{p}» ضمن ولايات ومحافظات سلطنة عمان.',
@@ -212,7 +221,12 @@ const TEXT = {
     newRequest: 'ابدأ طلبًا جديدًا',
     missingChip_price: 'السعر ناقص',
     missingChip_quantity: 'الكمية ناقصة',
-    missingChip_fishName: 'اسم السمك ناقص',
+    missingChip_fish: 'أي نوع؟',
+    missingChip_size: 'أي حجم؟',
+    size_Small: 'صغير',
+    size_Medium: 'وسط',
+    size_Large: 'كبير',
+    sizeDefault: '(افتراضي)',
     missingChip_location: 'المكان ناقص',
     invoiceNext: 'محسوبة بالريال العماني وجاهزة للإرسال إلى المشتري.',
     orderNext: 'يرسل صياد هذا الطلب إلى الموردين في منطقة التوصيل، ويختار المشتري من عروضهم.',
@@ -481,13 +495,14 @@ const locale = () => (lang === 'ar' ? 'ar-OM' : 'en-OM');
 const kg = (n) => new Intl.NumberFormat(locale(), { style: 'unit', unit: 'kilogram', maximumFractionDigits: 2 }).format(n);
 const omr = (n) => new Intl.NumberFormat(locale(), { style: 'currency', currency: 'OMR', minimumFractionDigits: 3 }).format(n);
 const chip = (field) => el('span', 'chip-missing', t('missingChip_' + field));
+const count = (n) => new Intl.NumberFormat(locale()).format(n);
 
 function renderThread() {
   $('said').replaceChildren(...session.turns.map((text, i) => {
     const li = el('li');
     const said = el('span', 'said-text', text || '—');
     said.dir = 'auto';
-    li.append(el('span', 'said-n', tf('messageN', { n: i + 1 })), said);
+    li.append(el('span', 'said-n', tf('messageN', { n: count(i + 1) })), said);
     return li;
   }));
   $('saidBox').hidden = !session.turns.length;
@@ -518,7 +533,7 @@ const newRequestButton = () => button(t('newRequest'), 'btn-quiet', resetSession
 const tryAgainButton = () => button(t('tryAgain'), 'btn-primary', () => { toTop(); $('mic').focus({ preventScroll: true }); });
 
 function useCompleteButton(r) {
-  return button(tf('useComplete_' + r.type, { n: r.completeCount }), 'btn-quiet', () => {
+  return button(tf('useComplete_' + r.type, { n: count(r.completeCount) }), 'btn-quiet', () => {
     const draft = completeOnly(r.draft);
     const done = { ...r, draft, ...evaluateDraft(draft) };
     session.draft = null;
@@ -529,20 +544,33 @@ function useCompleteButton(r) {
   });
 }
 
+// The fish as named on Sayyad's list (both languages) and its size; what was said when it isn't on the list.
 function fishCell(item) {
   const td = el('td');
-  if (!item.fishName) {
-    td.append(chip('fishName'));
-    return td;
-  }
-  const primary = lang === 'en' && item.fishNameEn ? item.fishNameEn : item.fishName;
-  let alt = primary === item.fishName ? (lang === 'en' ? null : item.fishNameEn) : item.fishName;
-  if (alt && alt.toLowerCase() === primary.toLowerCase()) alt = null;
-  const name = el('span', 'fish-name', primary);
+  const name = el('span', 'fish-name', item.fishName ? (lang === 'ar' ? item.fishNameAr : item.fishName) : item.spoken || '—');
   name.dir = 'auto';
   td.append(name);
-  if (alt) { const a = el('span', 'fish-alt', alt); a.dir = 'auto'; td.append(a); }
+  const size = item.size ? t('size_' + item.size) + (item.sizeAssumed ? ' ' + t('sizeDefault') : '') : null;
+  const other = item.fishName && (lang === 'ar' ? item.fishName : item.fishNameAr);
+  if (other || size) {
+    // <bdi> keeps the other-language name from reordering the line.
+    const alt = el('span', 'fish-alt');
+    if (other) alt.append(el('bdi', '', other));
+    if (other && size) alt.append(' · ');
+    if (size) alt.append(size);
+    td.append(alt);
+  }
+  if (item.missing.includes('fish')) td.append(chip('fish'));
+  if (item.missing.includes('size')) td.append(chip('size'));
   return td;
+}
+
+const fishLabel = (item) => (lang === 'ar' ? `${item.ar} (${item.en})` : `${item.en} (${item.ar})`);
+
+function needText(item, field) {
+  if (field === 'fish') return item.candidates.length ? tf('need_fish_choose', { list: item.candidates.map(fishLabel).join(lang === 'ar' ? '، ' : ', ') }) : t('need_fish_unknown');
+  if (field === 'size') return tf('need_size', { list: item.sizeOptions.map((s) => t('size_' + s)).join(' / ') });
+  return t('need_' + field);
 }
 
 function valueCell(item, field, value, format) {
@@ -628,7 +656,7 @@ function renderOutcome(r) {
     if (r.items.length) box.append(itemsTable(r));
 
     const body = el('div', 'outcome-body');
-    if (r.items.length) body.append(el('p', '', r.completeCount ? tf('heardComplete', { n: r.completeCount, total: r.items.length }) : t('noneComplete')));
+    if (r.items.length) body.append(el('p', '', r.completeCount ? tf('heardComplete', { n: count(r.completeCount), total: count(r.items.length) }) : t('noneComplete')));
     body.append(el('p', 'strong', t('stillNeed')));
     const ul = el('ul', 'tips');
     const perItem = new Map();
@@ -637,16 +665,17 @@ function renderOutcome(r) {
         if (m.spoken) ul.append(el('li', '', tf('unknownPlace', { p: m.spoken })));
         ul.append(el('li', '', t('need_' + m.field)));
       } else {
-        perItem.set(m.index, [...(perItem.get(m.index) || []), t('need_' + m.field)]);
+        perItem.set(m.index, [...(perItem.get(m.index) || []), needText(r.items[m.index], m.field)]);
       }
     }
     for (const [index, needs] of perItem) {
       const item = r.items[index];
-      const name = item.fishName ? (lang === 'en' && item.fishNameEn ? item.fishNameEn : item.fishName) : `#${index + 1}`;
+      const strong = el('strong');
+      if (item.fishName) strong.append(el('bdi', '', lang === 'ar' ? item.fishNameAr : item.fishName));
+      else if (item.spoken) strong.append(lang === 'ar' ? '«' : '“', el('bdi', '', item.spoken), lang === 'ar' ? '»' : '”');
+      else strong.append(`#${index + 1}`);
       const li = el('li');
-      const strong = el('strong', '', name);
-      strong.dir = 'auto';
-      li.append(strong, document.createTextNode(`: ${needs.join(lang === 'ar' ? '، ' : ', ')}`));
+      li.append(strong, `: ${needs.join(lang === 'ar' ? '، ' : ', ')}`);
       ul.append(li);
     }
     body.append(ul, el('p', 'muted', t('askMissing')));

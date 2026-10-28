@@ -1,6 +1,7 @@
 // Voice pipeline: transcribe (OpenAI Whisper) -> classify intent (DeepSeek) -> extract or update the
 // draft (DeepSeek) -> validate, calculate and build the API request (plain code, no model).
 import { GAZETTEER_TEXT, resolveLocation } from './oman-locations.js';
+import { CATALOG_TEXT, resolveFish, normSize } from './fish-catalog.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions';
@@ -21,7 +22,7 @@ async function transcribe(audio, filename, mimeType) {
   form.append('file', audio, filename);
   form.append('model', settings.whisperModel || 'whisper-1');
   // Vocabulary hint so Whisper spells fish names, places, units and prices well.
-  form.append('prompt', 'سمك في عمان: كنعد، شعري، هامور، جيذر، عومة، سردين، تونة، كوفر. كيلو، طن، ريال، بيسة. بعت، فاتورة، أبغي، التوصيل إلى العامرات، السيب، بوشر، صحار، صلالة.');
+  form.append('prompt', 'سمك في عمان: كنعد، خباط، هامور، شعري، جيذر، معدود، سهوة، صدة، عومة، ضلعة، كوفر، سيه، صافي، باريش، خناي، حبسة، عنفلوص، عقام. كيلو، طن، ريال، بيسة. بعت، فاتورة، أبغي، التوصيل إلى العامرات، السيب، صحار، صلالة.');
 
   // OpenAI omits CORS headers on invalid-key responses, so the browser reports a network error.
   const res = await fetch(OPENAI_URL, {
@@ -75,13 +76,22 @@ Reply with JSON only: {"intent": "create_invoice" | "create_order" | "continue" 
 
 const MERGE_RULES = `You receive JSON: {"transcript": "...", "currentDraft": null or the draft so far}.
 If currentDraft is given, the message adds to or corrects it: keep every existing item and value, fill in what the
-message supplies, apply corrections, and add any new fish. Return the whole updated draft, not just the changes.`;
+message supplies, apply corrections (including naming the exact fish where fish was null), and add any new fish.
+Return the whole updated draft, not just the changes.`;
 
 const NUMBER_RULES = `- Arabic-Indic digits and spoken numbers become numbers ("ميتين" = 200, "ألف" = 1000, "طنين" = 2 tons).
 - Never invent a value. Anything that was not said is null.`;
 
-const FISH_RULES = `- fishName: the fish as spoken, in its original language (e.g. "تونة"). fishNameEn: its English name if you know it, else null.
+const FISH_RULES = `- fish: the fish's exact English name from Sayyad's approved list below. Match Arabic, Omani and English names to it
+  (e.g. "هامور" or "grouper" -> "HAMOUR", "كنعد" or "kingfish" -> "King Fish"). If the fish is not on the list, or the name
+  fits more than one entry ("تونة" could be "Yellow Fin Tuna", "Long Tail Tuna" or "Sadah Tuna"; "حبار" could be "Cuttle Fish"
+  or "SQUID"), set fish to null and put up to 4 likely list names in candidates (empty if none fits). Never invent a name.
+- spoken: the fish name exactly as said.
+- size: "Small", "Medium" or "Large" when said ("صغير", "وسط" or "متوسط", "كبير") or when the name implies it (see the list), else null.
 - quantity + quantityUnit: the amount as a number with "kg" or "ton" (طن = ton). Do not convert units.`;
+
+const CATALOG = `Sayyad's approved fish (English name: Arabic and Omani names [sizes]):
+${CATALOG_TEXT}`;
 
 const INVOICE_PROMPT = `You turn a seller's voice message into an invoice draft for Sayyad, a fish marketplace in Oman.
 ${MERGE_RULES}
@@ -97,8 +107,10 @@ Also:
 - buyerName: who the fish was sold to, if said ("بعت لأحمد" -> "أحمد"), else null.
 ${NUMBER_RULES}
 
+${CATALOG}
+
 Reply with JSON only:
-{"buyerName": string | null, "items": [{"fishName": string | null, "fishNameEn": string | null, "quantity": number | null, "quantityUnit": "kg" | "ton" | null, "price": number | null, "priceUnit": "per_kg" | "per_ton" | "total" | null}]}`;
+{"buyerName": string | null, "items": [{"spoken": string | null, "fish": string | null, "candidates": string[], "size": "Small" | "Medium" | "Large" | null, "quantity": number | null, "quantityUnit": "kg" | "ton" | null, "price": number | null, "priceUnit": "per_kg" | "per_ton" | "total" | null}]}`;
 
 const ORDER_PROMPT = `You turn a buyer's voice message into an order draft for Sayyad, a fish marketplace in Oman.
 ${MERGE_RULES}
@@ -112,25 +124,50 @@ Delivery location:
 - If no place was said, location is null (or stays as in currentDraft).
 ${NUMBER_RULES}
 
+${CATALOG}
+
 Governorates and wilayats of Oman:
 ${GAZETTEER_TEXT}
 
 Reply with JSON only:
-{"location": {"spoken": string, "wilayat": string | null, "governorate": string | null} | null, "items": [{"fishName": string | null, "fishNameEn": string | null, "quantity": number | null, "quantityUnit": "kg" | "ton" | null}]}`;
+{"location": {"spoken": string, "wilayat": string | null, "governorate": string | null} | null, "items": [{"spoken": string | null, "fish": string | null, "candidates": string[], "size": "Small" | "Medium" | "Large" | null, "quantity": number | null, "quantityUnit": "kg" | "ton" | null}]}`;
 
 const round3 = (n) => Math.round((n + Number.EPSILON) * 1000) / 1000;
 const positive = (v) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+
+// Match the fish to Sayyad's approved list and pick the product (size). Without a stated size, a fish with
+// several sizes defaults to Medium, and the item says so.
+function matchProduct(raw, item) {
+  const match = resolveFish(raw.fish, raw.spoken);
+  if (!match?.fish) {
+    item.missing.push('fish');
+    const named = (raw.candidates || []).map((c) => resolveFish(c)?.fish).filter(Boolean);
+    item.candidates = [...new Set([...(match?.candidates || []), ...named])].slice(0, 4).map((f) => ({ en: f.display, ar: f.ar }));
+    return;
+  }
+  const { fish } = match;
+  const wanted = normSize(raw.size) || match.size;
+  Object.assign(item, { fishName: fish.display, fishNameAr: fish.ar });
+  const product = fish.products.length === 1 ? fish.products[0]
+    : wanted ? fish.products.find((p) => p.size === wanted)
+    : fish.products.find((p) => p.size === 'Medium') || fish.products[0];
+  if (!product) {
+    item.missing.push('size');
+    item.sizeOptions = fish.products.map((p) => p.size);
+    return;
+  }
+  Object.assign(item, { productId: product.id, productName: product.nameEN, size: product.size, sizeAssumed: !wanted && fish.products.length > 1 });
+}
 
 // Unify units (tons -> kg, price -> OMR per kg) and list what each fish set is missing.
 function evaluateItem(raw, type) {
   const quantity = positive(raw.quantity);
   const item = {
-    fishName: raw.fishName || null,
-    fishNameEn: raw.fishNameEn || null,
+    spoken: raw.spoken || raw.fish || null,
     quantityKg: quantity === null ? null : quantity * (raw.quantityUnit === 'ton' ? 1000 : 1),
     missing: [],
   };
-  if (!item.fishName) item.missing.push('fishName');
+  matchProduct(raw, item);
   if (item.quantityKg === null) item.missing.push('quantity');
   if (type === 'invoice') {
     const price = positive(raw.price);
@@ -190,7 +227,7 @@ function buildApiRequest(type, items, location, buyerName, total) {
         buyerId: '<BUYER_ID>',
         source: 'voice',
         deliveryLocation: { governorate: location.governorate, wilayat: location.wilayat, lat: location.lat, lng: location.lng },
-        items: items.map(({ fishName, fishNameEn, quantityKg }) => ({ fishName, fishNameEn, quantityKg })),
+        items: items.map(({ productId, productName, size, quantityKg }) => ({ productId, fishName: productName, size, quantityKg })),
       },
     };
   }
@@ -202,7 +239,7 @@ function buildApiRequest(type, items, location, buyerName, total) {
       source: 'voice',
       currency: 'OMR',
       buyerName,
-      items: items.map(({ fishName, fishNameEn, quantityKg, pricePerKg, lineTotal }) => ({ fishName, fishNameEn, quantityKg, pricePerKg: round3(pricePerKg), lineTotal })),
+      items: items.map(({ productId, productName, size, quantityKg, pricePerKg, lineTotal }) => ({ productId, fishName: productName, size, quantityKg, pricePerKg: round3(pricePerKg), lineTotal })),
       total,
     },
   };
