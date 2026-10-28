@@ -23,8 +23,8 @@ const TEXT = {
     examplesTitle: 'Two ways to use it',
     tagBuyer: 'For buyers',
     buyerTitle: 'Order fish',
-    buyerNote: 'Say the fish and how much, and where to deliver if you like.',
-    buyerTr: '“I’d like 100 kg of king fish and 50 kg of sharry, delivered to Al Amerat.”',
+    buyerNote: 'Say the fish and how much.',
+    buyerTr: '“I’d like 100 kg of king fish and 50 kg of sharry.”',
     tagSeller: 'For sellers',
     sellerTitle: 'Create an invoice',
     sellerNote: 'Say what you sold, how much, and the price per kilo.',
@@ -58,7 +58,7 @@ const TEXT = {
     copy: 'Copy',
     copied: 'Copied',
     micBlocked: 'The browser blocked the microphone. Allow microphone access for this page, or upload a voice note instead.',
-    examplesNote: 'Missed a detail? Record just the missing part; the draft stays open until it is complete.',
+    examplesNote: 'Missed a detail or want a change? Just record it. Nothing is final until you confirm.',
     roleLegend: 'Account type',
     roleBuyer: 'Buyer',
     roleSeller: 'Seller',
@@ -70,16 +70,12 @@ const TEXT = {
     micHintContinue_invoice: 'Your draft invoice is still open',
     micHintContinue_order: 'Your draft order is still open',
     messageN: 'Message {n}',
-    invoiceReadyHead: 'Invoice ready',
     invoiceBadge: 'Invoice',
-    orderReadyHead: 'Order ready',
     orderBadge: 'Order',
     invoiceDraftHead: 'Draft invoice: details missing',
     orderDraftHead: 'Draft order: details missing',
     draftBadge: 'Draft',
     buyerLabel: 'Buyer',
-    deliverTo: 'Deliver to',
-    governorateOf: '{g} Governorate',
     colLineTotal: 'Line total',
     invoiceTotal: 'Invoice total',
     completeTotal: 'Total of complete items',
@@ -92,9 +88,7 @@ const TEXT = {
     need_fish_choose: 'which fish exactly: {list}',
     need_fish_unknown: 'not on Sayyad’s fish list; say a fish from the list',
     need_size: 'size: {list}',
-    notSpecified: 'Not specified',
     need_items: 'The fish and quantities',
-    unknownPlace: 'We couldn’t find “{p}” among Oman’s wilayats and governorates.',
     askMissing: 'Record a short message with just these details. You don’t need to repeat the rest.',
     recordMissing: 'Record missing details',
     useComplete_invoice: 'Create invoice with complete items only ({n})',
@@ -109,8 +103,8 @@ const TEXT = {
     size_Medium: 'Medium',
     size_Large: 'Large',
     sizeDefault: '(default)',
-    invoiceNext: 'Calculated in Omani rials and ready to send to the buyer.',
-    orderNext: 'Sayyad sends this order to suppliers in the delivery area, and the buyer chooses from their offers.',
+    invoiceNext: 'Calculated in Omani rials. In the live app, the confirmed invoice goes to the buyer.',
+    orderNext: 'Sayyad sends this order to suppliers, and the buyer chooses from their offers.',
     notAllowedHead: 'Not available for this account',
     notAllowedBadge: 'Account type',
     notAllowed_invoice: 'This sounds like an invoice, but buyer accounts can only place orders. To try it in this demo, switch the account type to Seller or Buyer & seller.',
@@ -118,8 +112,22 @@ const TEXT = {
     draftStillOpen_invoice: 'Your draft invoice is still open. Record the missing details to finish it.',
     draftStillOpen_order: 'Your draft order is still open. Record the missing details to finish it.',
     unclearText: 'We couldn’t turn that into an order or an invoice. The audio may have been unclear, or the message may not be about buying or selling fish.',
-    tipOrder: 'To order: the fish and how much (the delivery wilayat is optional)',
+    tipOrder: 'To order: the fish and how much',
     tipInvoice: 'For an invoice: the fish you sold, how much, and the price per kilo',
+    invoiceReviewHead: 'Check your invoice',
+    orderReviewHead: 'Check your order',
+    reviewAsk_invoice: 'Is everything right? Confirm to finish, or record what to change, for example “make the king fish 150 kilos” or “remove the hamour”.',
+    reviewAsk_order: 'Is everything right? Confirm to place the order, or record what to change, for example “make it 150 kilos” or “add 20 kilos of sardines”.',
+    confirm_invoice: 'Confirm invoice',
+    confirm_order: 'Confirm order',
+    changeByVoice: 'Change by voice',
+    invoiceConfirmedHead: 'Invoice confirmed',
+    orderConfirmedHead: 'Order confirmed',
+    confirmedBadge: 'Confirmed',
+    micRefine: 'Tap to change something',
+    micHintRefine: 'Or confirm the result below',
+    reviewStillOpen_invoice: 'Your invoice is still waiting for you to confirm or change it.',
+    reviewStillOpen_order: 'Your order is still waiting for you to confirm or change it.',
   },
   ar: {
     pilot: 'الطلب بالصوت · نسخة تجريبية',
@@ -140,7 +148,7 @@ const TEXT = {
     examplesTitle: 'طريقتان للاستخدام',
     tagBuyer: 'للمشترين',
     buyerTitle: 'اطلب سمك',
-    buyerNote: 'قل نوع السمك والكمية، ومكان التوصيل إن أردت.',
+    buyerNote: 'قل نوع السمك والكمية.',
     buyerTr: '',
     tagSeller: 'للبائعين',
     sellerTitle: 'أنشئ فاتورة',
@@ -175,7 +183,7 @@ const TEXT = {
     copy: 'نسخ',
     copied: 'تم النسخ',
     micBlocked: 'منع المتصفح الوصول إلى الميكروفون. اسمح بالوصول لهذه الصفحة، أو ارفع رسالة صوتية بدلًا من ذلك.',
-    examplesNote: 'نسيت تفصيلًا؟ سجّل الجزء الناقص فقط، وتبقى المسودة مفتوحة حتى تكتمل.',
+    examplesNote: 'نسيت تفصيلًا أو تريد تعديلًا؟ سجّله فقط. لا شيء نهائي حتى تؤكد.',
     roleLegend: 'نوع الحساب',
     roleBuyer: 'مشتري',
     roleSeller: 'بائع',
@@ -187,16 +195,12 @@ const TEXT = {
     micHintContinue_invoice: 'مسودة الفاتورة ما زالت مفتوحة',
     micHintContinue_order: 'مسودة الطلب ما زالت مفتوحة',
     messageN: 'الرسالة {n}',
-    invoiceReadyHead: 'الفاتورة جاهزة',
     invoiceBadge: 'فاتورة',
-    orderReadyHead: 'الطلب جاهز',
     orderBadge: 'طلب',
     invoiceDraftHead: 'مسودة فاتورة: تنقص بعض التفاصيل',
     orderDraftHead: 'مسودة طلب: تنقص بعض التفاصيل',
     draftBadge: 'مسودة',
     buyerLabel: 'المشتري',
-    deliverTo: 'التوصيل إلى',
-    governorateOf: 'محافظة {g}',
     colLineTotal: 'المجموع',
     invoiceTotal: 'إجمالي الفاتورة',
     completeTotal: 'مجموع الأصناف المكتملة',
@@ -209,9 +213,7 @@ const TEXT = {
     need_fish_choose: 'أي نوع بالضبط: {list}',
     need_fish_unknown: 'ليس ضمن قائمة أسماك صياد؛ اذكر سمكًا من القائمة',
     need_size: 'الحجم: {list}',
-    notSpecified: 'غير محدد',
     need_items: 'نوع السمك والكمية',
-    unknownPlace: 'لم نجد «{p}» ضمن ولايات ومحافظات سلطنة عمان.',
     askMissing: 'سجّل رسالة قصيرة بهذه التفاصيل فقط، ولا داعي لإعادة الباقي.',
     recordMissing: 'سجّل التفاصيل الناقصة',
     useComplete_invoice: 'أنشئ الفاتورة بالأصناف المكتملة ({n})',
@@ -226,8 +228,8 @@ const TEXT = {
     size_Medium: 'وسط',
     size_Large: 'كبير',
     sizeDefault: '(افتراضي)',
-    invoiceNext: 'محسوبة بالريال العماني وجاهزة للإرسال إلى المشتري.',
-    orderNext: 'يرسل صياد هذا الطلب إلى الموردين في منطقة التوصيل، ويختار المشتري من عروضهم.',
+    invoiceNext: 'محسوبة بالريال العماني. في التطبيق الفعلي تُرسل الفاتورة المؤكدة إلى المشتري.',
+    orderNext: 'يرسل صياد هذا الطلب إلى الموردين، ويختار المشتري من عروضهم.',
     notAllowedHead: 'غير متاح لهذا الحساب',
     notAllowedBadge: 'نوع الحساب',
     notAllowed_invoice: 'يبدو هذا فاتورة، لكن حساب المشتري ينشئ طلبات فقط. لتجربته في هذا العرض، غيّر نوع الحساب إلى بائع أو مشتري وبائع.',
@@ -235,8 +237,22 @@ const TEXT = {
     draftStillOpen_invoice: 'مسودة الفاتورة ما زالت مفتوحة. سجّل التفاصيل الناقصة لإكمالها.',
     draftStillOpen_order: 'مسودة الطلب ما زالت مفتوحة. سجّل التفاصيل الناقصة لإكماله.',
     unclearText: 'لم نتمكن من تحويل ذلك إلى طلب أو فاتورة. ربما لم يكن الصوت واضحًا، أو أن الرسالة لا تتعلق بشراء أو بيع السمك.',
-    tipOrder: 'للطلب: نوع السمك والكمية (ولاية التوصيل اختيارية)',
+    tipOrder: 'للطلب: نوع السمك والكمية',
     tipInvoice: 'للفاتورة: السمك الذي بعته والكمية وسعر الكيلو',
+    invoiceReviewHead: 'راجع فاتورتك',
+    orderReviewHead: 'راجع طلبك',
+    reviewAsk_invoice: 'هل كل شيء صحيح؟ أكّد للإنهاء، أو سجّل ما تريد تغييره، مثل «خل الكنعد ١٥٠ كيلو» أو «شيل الهامور».',
+    reviewAsk_order: 'هل كل شيء صحيح؟ أكّد لإرسال الطلب، أو سجّل ما تريد تغييره، مثل «خلها ١٥٠ كيلو» أو «زيد ٢٠ كيلو عومة».',
+    confirm_invoice: 'تأكيد الفاتورة',
+    confirm_order: 'تأكيد الطلب',
+    changeByVoice: 'عدّل بالصوت',
+    invoiceConfirmedHead: 'تم تأكيد الفاتورة',
+    orderConfirmedHead: 'تم تأكيد الطلب',
+    confirmedBadge: 'مؤكد',
+    micRefine: 'اضغط لتعديل شيء',
+    micHintRefine: 'أو أكّد النتيجة بالأسفل',
+    reviewStillOpen_invoice: 'فاتورتك ما زالت بانتظار التأكيد أو التعديل.',
+    reviewStillOpen_order: 'طلبك ما زال بانتظار التأكيد أو التعديل.',
   },
 };
 
@@ -367,10 +383,11 @@ function setMic(state) {
   mic.classList.toggle('busy', state === 'busy');
   mic.disabled = state === 'busy';
   $('file').disabled = state !== 'idle';
-  const continuing = state === 'idle' && session.draft;
-  const label = continuing ? 'micContinue' : { idle: 'micIdle', recording: 'micRecording', busy: 'micBusy' }[state];
+  const reviewing = state === 'idle' && session.review;
+  const continuing = state === 'idle' && session.draft && !reviewing;
+  const label = reviewing ? 'micRefine' : continuing ? 'micContinue' : { idle: 'micIdle', recording: 'micRecording', busy: 'micBusy' }[state];
   $('micLabel').textContent = t(label);
-  if (state === 'idle') $('micHint').textContent = continuing ? t('micHintContinue_' + session.draft.type) : t('micHintIdle');
+  if (state === 'idle') $('micHint').textContent = reviewing ? t('micHintRefine') : continuing ? t('micHintContinue_' + session.draft.type) : t('micHintIdle');
   if (state === 'busy') $('micHint').textContent = t('micBusyHint');
   mic.setAttribute('aria-label', t(label));
 }
@@ -425,8 +442,9 @@ $('file').onchange = (e) => {
 const EXTENSIONS = { webm: 'webm', ogg: 'ogg', mp4: 'mp4', mpeg: 'mp3', mp3: 'mp3', wav: 'wav', 'x-wav': 'wav', m4a: 'm4a', 'x-m4a': 'm4a' };
 const STEP_ORDER = ['recorded', 'transcribing', 'understanding', 'ready'];
 
-// One conversation: what was said so far, the draft still being completed, and the latest result.
-const newSession = () => ({ turns: [], draft: null, last: null, done: false });
+// One conversation: what was said so far, the draft still being completed or reviewed, and the latest result.
+// review holds a complete result waiting for the user to confirm it or change it by voice.
+const newSession = () => ({ turns: [], draft: null, last: null, review: null, done: false });
 let session = newSession();
 
 function setStep(step, failed = false) {
@@ -467,14 +485,16 @@ async function process(blob) {
     session.turns.push(result.transcript);
     session.last = result;
     if (result.status === 'ready') {
-      session.draft = null;
-      session.done = true;
+      session.draft = result.draft;
+      session.review = result;
     } else if (result.status === 'needs_details') {
       session.draft = result.draft;
+      session.review = null;
     }
     setStep('ready');
     renderThread();
-    renderOutcome(result);
+    if (result.status === 'confirm') confirmResult(result);
+    else renderOutcome(result);
   } catch (err) {
     setStep(current, true);
     showError(err.message);
@@ -528,17 +548,31 @@ function actions(...buttons) {
 const recordButton = () => button(t('recordMissing'), 'btn-primary', () => { toTop(); $('mic').click(); });
 const startOverButton = () => button(t('startOver'), 'btn-quiet', resetSession);
 const newRequestButton = () => button(t('newRequest'), 'btn-quiet', resetSession);
+const changeButton = () => button(t('changeByVoice'), 'btn-quiet', () => { toTop(); $('mic').click(); });
+const confirmButton = (r) => button(t('confirm_' + r.type), 'btn-primary', () => confirmResult(r));
+
+// The final step: the reviewed result becomes the confirmed one and the conversation ends.
+function confirmResult(r) {
+  const confirmed = { ...r, status: 'confirmed' };
+  session.draft = null;
+  session.review = null;
+  session.done = true;
+  session.last = confirmed;
+  setMic('idle');
+  renderOutcome(confirmed);
+  toast(t(r.type + 'ConfirmedHead'));
+}
 const tryAgainButton = () => button(t('tryAgain'), 'btn-primary', () => { toTop(); $('mic').focus({ preventScroll: true }); });
 
 function useCompleteButton(r) {
   return button(tf('useComplete_' + r.type, { n: count(r.completeCount) }), 'btn-quiet', () => {
     const draft = completeOnly(r.draft);
-    const done = { ...r, draft, ...evaluateDraft(draft) };
-    session.draft = null;
-    session.done = true;
-    session.last = done;
+    const ready = { ...r, draft, ...evaluateDraft(draft) };
+    session.draft = draft;
+    session.review = ready;
+    session.last = ready;
     setMic('idle');
-    renderOutcome(done);
+    renderOutcome(ready);
   });
 }
 
@@ -606,21 +640,10 @@ function itemsTable(r) {
   return table;
 }
 
-// Delivery place for orders, buyer name for invoices.
+// The buyer's name on invoices.
 function metaLine(r) {
+  if (r.type !== 'invoice' || !r.buyerName) return null;
   const p = el('p', 'meta');
-  if (r.type === 'order') {
-    p.append(el('span', 'meta-label', t('deliverTo') + ':'));
-    if (!r.location) p.append(el('span', 'meta-note', r.unmatchedPlace ? tf('unknownPlace', { p: r.unmatchedPlace }) : t('notSpecified')));
-    else {
-      const l = r.location;
-      const wilayat = lang === 'ar' ? l.wilayatAr : l.wilayat;
-      const governorate = tf('governorateOf', { g: lang === 'ar' ? l.governorateAr : l.governorate });
-      p.append(el('span', 'meta-value', wilayat ? wilayat + (lang === 'ar' ? '، ' : ', ') + governorate : governorate));
-    }
-    return p;
-  }
-  if (!r.buyerName) return null;
   const name = el('span', 'meta-value', r.buyerName);
   name.dir = 'auto';
   p.append(el('span', 'meta-label', t('buyerLabel') + ':'), name);
@@ -632,25 +655,30 @@ function renderOutcome(r) {
   box.replaceChildren();
   box.hidden = false;
 
-  if (r.status === 'ready') {
-    const invoice = r.type === 'invoice';
-    box.append(head(t(invoice ? 'invoiceReadyHead' : 'orderReadyHead'), t(invoice ? 'invoiceBadge' : 'orderBadge')));
+  // A complete result is reviewed first (confirm, or change it by voice), then shown as confirmed.
+  if (r.status === 'ready' || r.status === 'confirmed') {
+    const confirmed = r.status === 'confirmed';
+    const header = head(t(r.type + (confirmed ? 'ConfirmedHead' : 'ReviewHead')), t(confirmed ? 'confirmedBadge' : r.type + 'Badge'));
+    if (confirmed) header.classList.add('ok');
+    box.append(header);
     const meta = metaLine(r);
     if (meta) box.append(meta);
     box.append(itemsTable(r));
+    if (!confirmed) {
+      box.append(el('p', 'review-ask', t('reviewAsk_' + r.type)), techDetails(r.apiRequest), actions(confirmButton(r), changeButton(), startOverButton()));
+      return;
+    }
     const next = el('p', 'next');
     next.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 15h-2v-6h2v6Zm0-8h-2V7h2v2Z"/></svg>';
-    next.append(el('span', '', t(invoice ? 'invoiceNext' : 'orderNext')));
+    next.append(el('span', '', t(r.type + 'Next')));
     box.append(next, techDetails(r.apiRequest), actions(newRequestButton()));
     return;
   }
 
   if (r.status === 'needs_details') {
     box.append(head(t(r.type === 'invoice' ? 'invoiceDraftHead' : 'orderDraftHead'), t('draftBadge'), true));
-    if (r.items.length || r.type === 'order') {
-      const meta = metaLine(r);
-      if (meta) box.append(meta);
-    }
+    const meta = metaLine(r);
+    if (meta) box.append(meta);
     if (r.items.length) box.append(itemsTable(r));
 
     const body = el('div', 'outcome-body');
@@ -696,6 +724,11 @@ function renderOutcome(r) {
     if (ALLOWED[role].includes('order')) ul.append(el('li', '', t('tipOrder')));
     if (ALLOWED[role].includes('invoice')) ul.append(el('li', '', t('tipInvoice')));
     body.append(ul);
+  }
+  if (session.review) {
+    body.append(el('p', 'muted', t('reviewStillOpen_' + session.review.type)));
+    box.append(body, actions(confirmButton(session.review), changeButton(), startOverButton()));
+    return;
   }
   if (r.draft) body.append(el('p', 'muted', t('draftStillOpen_' + r.draft.type)));
   box.append(body, actions(...(r.draft ? [recordButton(), startOverButton()] : [tryAgainButton()])));
