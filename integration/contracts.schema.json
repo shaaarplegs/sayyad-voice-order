@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/shaaarplegs/sayyad-voice-order/integration/contracts.schema.json",
+  "title": "Sayyad voice pipeline contracts",
+  "description": "Every JSON shape in the pipeline. Model replies: ClassifyOutput, InvoiceExtraction, OrderExtraction (validate them before use). Carried between messages: Draft. Returned to the app: InterpretResult. Sent to the backend on confirm: ApiRequest. Generate C# with NJsonSchema or quicktype.",
+  "$defs": {
+    "Size": { "enum": ["Small", "Medium", "Large", null] },
+
+    "Price": {
+      "type": "object",
+      "description": "How the price was said. Code converts it to OMR per kg (rules.priceInRials): rial + baisa/1000; a bare number of 50 or more per kg is baisa.",
+      "properties": {
+        "rial": { "type": ["number", "null"], "description": "Amount said in rials, e.g. 1 in 'ريال و٢٠٠', 1.2 in '1.2 rial'." },
+        "baisa": { "type": ["number", "null"], "description": "Amount said in baisa, or the number after 'ريال و' / 'rial and'." },
+        "number": { "type": ["number", "null"], "description": "A bare number said with no unit." },
+        "unit": { "enum": ["per_kg", "per_ton", "total"] }
+      },
+      "required": ["unit"]
+    },
+
+    "RawItem": {
+      "type": "object",
+      "description": "One fish as the model extracted it (the form kept in the Draft).",
+      "properties": {
+        "spoken": { "type": ["string", "null"], "description": "The fish name as said." },
+        "fish": { "type": ["string", "null"], "description": "Exact English name from the fish list; null when not on the list or ambiguous." },
+        "candidates": { "type": "array", "items": { "type": "string" }, "description": "Likely list names when fish is null." },
+        "size": { "$ref": "#/$defs/Size" },
+        "quantity": { "type": ["number", "null"] },
+        "quantityUnit": { "enum": ["kg", "ton", null] },
+        "price": { "oneOf": [{ "$ref": "#/$defs/Price" }, { "type": "null" }], "description": "Invoices only." }
+      },
+      "required": ["fish", "quantity"]
+    },
+
+    "ClassifyOutput": {
+      "type": "object",
+      "properties": {
+        "intent": { "enum": ["create_invoice", "create_order", "continue", "confirm", "unrelated"] },
+        "reason": { "type": "string" }
+      },
+      "required": ["intent"]
+    },
+
+    "InvoiceExtraction": {
+      "type": "object",
+      "properties": {
+        "buyerName": { "type": ["string", "null"] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/RawItem" } }
+      },
+      "required": ["items"]
+    },
+
+    "OrderExtraction": {
+      "type": "object",
+      "properties": { "items": { "type": "array", "items": { "$ref": "#/$defs/RawItem" } } },
+      "required": ["items"]
+    },
+
+    "Draft": {
+      "description": "The request being built, carried from one voice message to the next (store it per session).",
+      "oneOf": [
+        { "type": "object", "properties": { "type": { "const": "invoice" }, "buyerName": { "type": ["string", "null"] }, "items": { "type": "array", "items": { "$ref": "#/$defs/RawItem" } } }, "required": ["type", "items"] },
+        { "type": "object", "properties": { "type": { "const": "order" }, "items": { "type": "array", "items": { "$ref": "#/$defs/RawItem" } } }, "required": ["type", "items"] }
+      ]
+    },
+
+    "ClassifyInput": {
+      "type": "object",
+      "description": "User message sent with the classify prompt (as a JSON string).",
+      "properties": { "transcript": { "type": "string" }, "openDraft": { "oneOf": [{ "$ref": "#/$defs/Draft" }, { "type": "null" }] } },
+      "required": ["transcript", "openDraft"]
+    },
+
+    "ExtractInput": {
+      "type": "object",
+      "description": "User message sent with the invoice/order prompt. currentDraft is the open draft without its type, or null for a new request.",
+      "properties": { "transcript": { "type": "string" }, "currentDraft": { "type": ["object", "null"] } },
+      "required": ["transcript", "currentDraft"]
+    },
+
+    "EvaluatedItem": {
+      "type": "object",
+      "description": "A RawItem after the rules: matched to a product, units unified, prices in OMR per kg.",
+      "properties": {
+        "spoken": { "type": ["string", "null"] },
+        "fishName": { "type": "string", "description": "Display English name (title case)." },
+        "fishNameAr": { "type": "string" },
+        "productId": { "type": "string", "description": "Sayyad product ID (fish + size)." },
+        "productName": { "type": "string", "description": "Exact product nameEN." },
+        "size": { "$ref": "#/$defs/Size" },
+        "sizeAssumed": { "type": "boolean", "description": "true when no size was said and Medium was picked." },
+        "candidates": { "type": "array", "items": { "type": "object", "properties": { "en": { "type": "string" }, "ar": { "type": "string" } }, "required": ["en", "ar"] } },
+        "sizeOptions": { "type": "array", "items": { "$ref": "#/$defs/Size" } },
+        "quantityKg": { "type": ["number", "null"] },
+        "pricePerKg": { "type": "number" },
+        "lineTotal": { "type": "number", "description": "OMR, 3 decimals." },
+        "missing": { "type": "array", "items": { "enum": ["fish", "size", "quantity", "price"] } }
+      },
+      "required": ["quantityKg", "missing"]
+    },
+
+    "MissingField": {
+      "type": "object",
+      "properties": {
+        "index": { "type": ["integer", "null"], "description": "Item index, or null for the whole draft." },
+        "fishName": { "type": ["string", "null"] },
+        "field": { "enum": ["fish", "size", "quantity", "price", "items"] }
+      },
+      "required": ["index", "field"]
+    },
+
+    "CreateOrderRequest": {
+      "type": "object",
+      "properties": {
+        "buyerId": { "type": "string" },
+        "source": { "const": "voice" },
+        "items": { "type": "array", "items": { "type": "object", "properties": { "productId": { "type": "string" }, "fishName": { "type": "string" }, "size": { "$ref": "#/$defs/Size" }, "quantityKg": { "type": "number" } }, "required": ["productId", "quantityKg"] } }
+      },
+      "required": ["buyerId", "source", "items"]
+    },
+
+    "CreateInvoiceRequest": {
+      "type": "object",
+      "properties": {
+        "sellerId": { "type": "string" },
+        "source": { "const": "voice" },
+        "currency": { "const": "OMR" },
+        "buyerName": { "type": ["string", "null"] },
+        "items": { "type": "array", "items": { "type": "object", "properties": { "productId": { "type": "string" }, "fishName": { "type": "string" }, "size": { "$ref": "#/$defs/Size" }, "quantityKg": { "type": "number" }, "pricePerKg": { "type": "number" }, "lineTotal": { "type": "number" } }, "required": ["productId", "quantityKg", "pricePerKg", "lineTotal"] } },
+        "total": { "type": "number" }
+      },
+      "required": ["sellerId", "source", "currency", "items", "total"]
+    },
+
+    "ApiRequest": {
+      "type": "object",
+      "properties": {
+        "method": { "const": "POST" },
+        "path": { "enum": ["/api/v1/orders", "/api/v1/invoices"] },
+        "body": { "oneOf": [{ "$ref": "#/$defs/CreateOrderRequest" }, { "$ref": "#/$defs/CreateInvoiceRequest" }] }
+      },
+      "required": ["method", "path", "body"]
+    },
+
+    "InterpretResult": {
+      "type": "object",
+      "description": "What one voice message produced. status: ready (complete; show for review), needs_details (draft kept; ask for missing), confirm (user approved a complete draft), not_allowed / unrelated (open draft unchanged).",
+      "properties": {
+        "transcript": { "type": ["string", "null"] },
+        "intent": { "enum": ["create_invoice", "create_order", "continue", "confirm", "unrelated"] },
+        "reason": { "type": "string" },
+        "type": { "enum": ["invoice", "order"] },
+        "status": { "enum": ["ready", "needs_details", "confirm", "not_allowed", "unrelated"] },
+        "draft": { "oneOf": [{ "$ref": "#/$defs/Draft" }, { "type": "null" }] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/EvaluatedItem" } },
+        "missing": { "type": "array", "items": { "$ref": "#/$defs/MissingField" } },
+        "completeCount": { "type": "integer" },
+        "buyerName": { "type": ["string", "null"] },
+        "totalKg": { "type": "number" },
+        "total": { "type": ["number", "null"] },
+        "canUseCompleteOnly": { "type": "boolean" },
+        "apiRequest": { "oneOf": [{ "$ref": "#/$defs/ApiRequest" }, { "type": "null" }] }
+      },
+      "required": ["transcript", "intent", "status"]
+    }
+  }
+}

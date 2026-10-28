@@ -1,0 +1,160 @@
+{
+  "about": "Expected behaviour of the voice pipeline. fixRialAnd, priceInRials, resolveFish and evaluateDraft are pure rules: a port must match them exactly. conversations run transcript -> result against the live chat model (one turn after another, carrying the open draft). Product IDs are Sayyad product IDs. Run: npm test (rules) or DEEPSEEK_API_KEY=... npm test (rules + conversations).",
+
+  "fixRialAnd": [
+    { "in": "بعت ١٠٠ كيلو كنعد بريال ه٢٠٠", "out": "بعت ١٠٠ كيلو كنعد بريال و٢٠٠" },
+    { "in": "الكيلو بريال ه ميتين", "out": "الكيلو بريال وميتين" },
+    { "in": "بريالة ميتين", "out": "بريال وميتين" },
+    { "in": "بريالين ه خمسمية", "out": "بريالين وخمسمية" },
+    { "in": "بعت ريال هامور", "out": "بعت ريال هامور" },
+    { "in": "بريال هذا الكيلو", "out": "بريال هذا الكيلو" }
+  ],
+
+  "priceInRials": [
+    { "price": { "rial": 1, "baisa": 200, "number": null, "unit": "per_kg" }, "rials": 1.2 },
+    { "price": { "rial": 1.2, "baisa": null, "number": null, "unit": "per_kg" }, "rials": 1.2 },
+    { "price": { "rial": null, "baisa": 1200, "number": null, "unit": "per_kg" }, "rials": 1.2 },
+    { "price": { "rial": null, "baisa": null, "number": 1200, "unit": "per_kg" }, "rials": 1.2 },
+    { "price": { "rial": null, "baisa": null, "number": 800, "unit": "per_kg" }, "rials": 0.8 },
+    { "price": { "rial": null, "baisa": null, "number": 3, "unit": "per_kg" }, "rials": 3 },
+    { "price": { "rial": null, "baisa": 500, "number": null, "unit": "per_kg" }, "rials": 0.5 },
+    { "price": { "rial": 2, "baisa": 500, "number": null, "unit": "per_kg" }, "rials": 2.5 },
+    { "price": { "rial": null, "baisa": null, "number": 400, "unit": "total" }, "rials": 400 },
+    { "price": { "rial": null, "baisa": null, "number": 300, "unit": "per_ton" }, "rials": 300 },
+    { "price": null, "rials": null }
+  ],
+
+  "resolveFish": [
+    { "name": "كنعد", "fish": "King Fish" },
+    { "name": "خباط", "fish": "King Fish", "size": "Small" },
+    { "name": "kingfish", "fish": "King Fish" },
+    { "name": "الهامور", "fish": "HAMOUR" },
+    { "name": "معدود", "fish": "Yellow Fin Tuna", "size": "Small" },
+    { "name": "Madod", "fish": "Yellow Fin Tuna", "size": "Small" },
+    { "name": "قد", "fish": "BARRACUDA" },
+    { "name": "شعم", "fish": "SILVER BREAM" },
+    { "name": "كوفر أبيض", "fish": "SILVER BREAM" },
+    { "name": "كوفر", "fish": "KOFFER" },
+    { "name": "باعيل", "fish": "Hamam fish" },
+    { "name": "حبار", "candidates": ["Cuttle Fish", "SQUID"] },
+    { "name": "تونة" },
+    { "name": "trout" }
+  ],
+
+  "evaluateDraft": [
+    {
+      "name": "invoice: default size, tons, bare baisa price",
+      "draft": { "type": "invoice", "buyerName": "أحمد", "items": [
+        { "spoken": "جيذر", "fish": "Yellow Fin Tuna", "candidates": [], "size": null, "quantity": 200, "quantityUnit": "kg", "price": { "rial": 2, "baisa": null, "number": null, "unit": "per_kg" } },
+        { "spoken": "هامور كبير", "fish": "HAMOUR", "candidates": [], "size": "Large", "quantity": 2, "quantityUnit": "ton", "price": { "rial": null, "baisa": null, "number": 800, "unit": "per_kg" } }
+      ] },
+      "expect": { "status": "ready", "productIds": ["16b80000-bf07-0a6e-c204-08dc2e39f947", "e6bdf2c6-c67c-4567-a8df-e7169a6355b2"], "sizes": ["Medium", "Large"], "pricesPerKg": [2, 0.8], "totalKg": 2200, "total": 2000, "apiPath": "/api/v1/invoices", "apiBodyKeys": ["sellerId", "source", "currency", "buyerName", "items", "total"] }
+    },
+    {
+      "name": "invoice: rial + baisa, and a lump sum",
+      "draft": { "type": "invoice", "buyerName": null, "items": [
+        { "spoken": "كنعد", "fish": "King Fish", "candidates": [], "size": null, "quantity": 100, "quantityUnit": "kg", "price": { "rial": 1, "baisa": 200, "number": null, "unit": "per_kg" } },
+        { "spoken": "شعري", "fish": "SHARRY", "candidates": [], "size": null, "quantity": 200, "quantityUnit": "kg", "price": { "rial": 400, "baisa": null, "number": null, "unit": "total" } }
+      ] },
+      "expect": { "status": "ready", "productIds": ["347382ae-46bd-4262-acc7-4e5dd0e4481b", "86bc1df8-fc3e-4ce4-8d06-1a4854abcdf7"], "pricesPerKg": [1.2, 2], "totalKg": 300, "total": 520 }
+    },
+    {
+      "name": "invoice: partial, one price missing and one fish ambiguous",
+      "draft": { "type": "invoice", "buyerName": null, "items": [
+        { "spoken": "كنعد", "fish": "King Fish", "candidates": [], "size": null, "quantity": 100, "quantityUnit": "kg", "price": { "rial": 4, "baisa": null, "number": null, "unit": "per_kg" } },
+        { "spoken": "شعري", "fish": "SHARRY", "candidates": [], "size": null, "quantity": 50, "quantityUnit": "kg", "price": null },
+        { "spoken": "تونة", "fish": null, "candidates": ["Yellow Fin Tuna", "Long Tail Tuna"], "size": null, "quantity": 30, "quantityUnit": "kg", "price": { "rial": 2, "baisa": null, "number": null, "unit": "per_kg" } }
+      ] },
+      "expect": { "status": "needs_details", "missing": ["1:price", "2:fish"], "completeCount": 1, "total": 400, "canUseCompleteOnly": true, "candidatesInclude": ["Yellow Fin Tuna", "Long Tail Tuna"] }
+    },
+    {
+      "name": "order: size from the spoken name (خباط), tons",
+      "draft": { "type": "order", "items": [
+        { "spoken": "خباط", "fish": "King Fish", "candidates": [], "size": null, "quantity": 30, "quantityUnit": "kg" },
+        { "spoken": "هامور", "fish": "HAMOUR", "candidates": [], "size": null, "quantity": 0.5, "quantityUnit": "ton" }
+      ] },
+      "expect": { "status": "ready", "productIds": ["42d95272-25d1-4bc4-9081-99576ae5bdec", "c9edd99c-70f2-4723-9d3c-9e9620aa86a8"], "sizes": ["Small", "Medium"], "totalKg": 530, "apiPath": "/api/v1/orders", "apiBodyKeys": ["buyerId", "source", "items"] }
+    },
+    {
+      "name": "order: a fish with one size ignores a size it does not have",
+      "draft": { "type": "order", "items": [ { "spoken": "anchovies", "fish": "Anchovies", "candidates": [], "size": "Large", "quantity": 10, "quantityUnit": "kg" } ] },
+      "expect": { "status": "ready", "productIds": ["16b80000-bf07-0a6e-b7d2-08dc2e36d9bb"], "sizes": ["Small"] }
+    },
+    {
+      "name": "unknown fish is flagged, not guessed",
+      "draft": { "type": "invoice", "buyerName": null, "items": [ { "spoken": "trout", "fish": null, "candidates": [], "size": null, "quantity": 40, "quantityUnit": "kg", "price": { "rial": 3, "baisa": null, "number": null, "unit": "per_kg" } } ] },
+      "expect": { "status": "needs_details", "missing": ["0:fish"], "productIds": [null] }
+    },
+    {
+      "name": "empty draft",
+      "draft": { "type": "order", "items": [] },
+      "expect": { "status": "needs_details", "missing": ["null:items"] }
+    }
+  ],
+
+  "conversations": [
+    { "name": "Arabic invoice", "role": "seller", "turns": [
+      { "say": "بعت لأحمد ٢٠٠ كيلو جيذر بريالين الكيلو و٨٠ كيلو هامور بثلاث ريالات", "expect": { "status": "ready", "total": 640, "buyerNameMatches": "أحمد", "productIds": ["16b80000-bf07-0a6e-c204-08dc2e39f947", "c9edd99c-70f2-4723-9d3c-9e9620aa86a8"] } } ] },
+    { "name": "Arabic order with size words", "role": "buyer", "turns": [
+      { "say": "أبغي ٥٠ كيلو هامور كبير و٣٠ كيلو خباط", "expect": { "status": "ready", "productIds": ["e6bdf2c6-c67c-4567-a8df-e7169a6355b2", "42d95272-25d1-4bc4-9081-99576ae5bdec"] } } ] },
+    { "name": "Ambiguous تونة, the follow-up picks one", "role": "seller", "turns": [
+      { "say": "بعت ١٠٠ كيلو تونة بريالين", "expect": { "status": "needs_details", "missingFields": ["fish"], "candidatesInclude": ["Yellow Fin Tuna"] } },
+      { "say": "قصدي جيذر", "expect": { "status": "ready", "fishNames": ["Yellow Fin Tuna"], "total": 200 } } ] },
+    { "name": "Omani slang names", "role": "buyer", "turns": [
+      { "say": "أبغي ٢٠ كيلو قد و٣٠ كيلو عومة", "expect": { "status": "ready", "fishNames": ["Barracuda", "Sardines"] } } ] },
+    { "name": "حبار fits two fish", "role": "buyer", "turns": [
+      { "say": "أبغي ٢٠ كيلو حبار", "expect": { "status": "needs_details", "candidatesInclude": ["Cuttle Fish", "Squid"] } } ] },
+    { "name": "Partial invoice, follow-up, confirm by voice", "role": "both", "turns": [
+      { "say": "بعت ١٠٠ كيلو كنعد بأربع ريالات و٥٠ كيلو شعري و٣٠ كيلو هامور", "expect": { "status": "needs_details", "completeCount": 1, "canUseCompleteOnly": true } },
+      { "say": "الشعري بريالين والهامور بثلاثة", "expect": { "status": "ready", "intent": "continue", "total": 590 } },
+      { "say": "تمام أكد", "expect": { "status": "confirm", "total": 590 } } ] },
+    { "name": "Catch only, then one price for all", "role": "seller", "turns": [
+      { "say": "صدت اليوم ٢٠٠ كيلو كنعد و٥٠ كيلو جيذر", "expect": { "status": "needs_details", "type": "invoice", "completeCount": 0 } },
+      { "say": "كلهم بريال ونص", "expect": { "status": "ready", "total": 375 } } ] },
+    { "name": "Price: بريال و٢٠٠", "role": "seller", "turns": [ { "say": "بعت ١٠٠ كيلو كنعد بريال و٢٠٠", "expect": { "status": "ready", "total": 120 } } ] },
+    { "name": "Price: بريال ه٢٠٠ (و heard as ه)", "role": "seller", "turns": [ { "say": "بعت ١٠٠ كيلو كنعد بريال ه٢٠٠", "expect": { "status": "ready", "total": 120 } } ] },
+    { "name": "Price: بريالة ميتين (و heard as ه)", "role": "seller", "turns": [ { "say": "بعت ١٠٠ كيلو كنعد بريالة ميتين", "expect": { "status": "ready", "total": 120 } } ] },
+    { "name": "Price: ١٢٠٠ بيسة", "role": "seller", "turns": [ { "say": "بعت ١٠٠ كيلو كنعد الكيلو بـ ١٢٠٠ بيسة", "expect": { "status": "ready", "total": 120 } } ] },
+    { "name": "Price: bare ٨٠٠ = baisa", "role": "seller", "turns": [ { "say": "بعت ١٠٠ كيلو كنعد الكيلو بـ ٨٠٠", "expect": { "status": "ready", "total": 80 } } ] },
+    { "name": "Price: بريالين وخمسمية", "role": "seller", "turns": [ { "say": "بعت ١٠٠ كيلو كنعد بريالين وخمسمية", "expect": { "status": "ready", "total": 250 } } ] },
+    { "name": "Price: lump sum", "role": "seller", "turns": [ { "say": "بعت ٢٠٠ كيلو كنعد لسالم الكل بأربعمية ريال", "expect": { "status": "ready", "total": 400 } } ] },
+    { "name": "Buyer account cannot invoice", "role": "buyer", "turns": [ { "say": "بعت لعلي ٥٠ كيلو هامور بثلاث ريالات", "expect": { "status": "not_allowed", "type": "invoice" } } ] },
+    { "name": "Arabic unrelated", "role": "both", "turns": [ { "say": "كيف الجو اليوم؟", "expect": { "status": "unrelated" } } ] },
+
+    { "name": "English invoice", "role": "seller", "turns": [
+      { "say": "I sold Ahmed 200 kilos of yellowfin tuna at 2 rials a kilo and 80 kilos of hamour at 3 rials", "expect": { "status": "ready", "total": 640, "buyerNameMatches": "ahmed" } } ] },
+    { "name": "English order with sizes", "role": "buyer", "turns": [
+      { "say": "I want 50 kilos of large hamour and 30 kilos of small kingfish", "expect": { "status": "ready", "productIds": ["e6bdf2c6-c67c-4567-a8df-e7169a6355b2", "42d95272-25d1-4bc4-9081-99576ae5bdec"], "apiBodyKeys": ["buyerId", "source", "items"] } } ] },
+    { "name": "English 'tuna', then 'I meant yellowfin'", "role": "seller", "turns": [
+      { "say": "I sold 100 kilos of tuna at 2 rials", "expect": { "status": "needs_details", "missingFields": ["fish"], "candidatesInclude": ["Yellow Fin Tuna"] } },
+      { "say": "I meant yellowfin", "expect": { "status": "ready", "fishNames": ["Yellow Fin Tuna"], "total": 200 } } ] },
+    { "name": "English partial invoice, then prices", "role": "seller", "turns": [
+      { "say": "I sold 100 kilos of kingfish at 4 rials, 50 kilos of sharry and 30 kilos of hamour", "expect": { "status": "needs_details", "completeCount": 1 } },
+      { "say": "the sharry is 2 rials and the hamour 3", "expect": { "status": "ready", "total": 590 } } ] },
+    { "name": "English catch only, then one price", "role": "seller", "turns": [
+      { "say": "I caught 200 kilos of kingfish and 50 kilos of yellowfin today", "expect": { "status": "needs_details", "type": "invoice", "completeCount": 0 } },
+      { "say": "all of them at one and a half rials", "expect": { "status": "ready", "total": 375 } } ] },
+    { "name": "Price: one rial two hundred", "role": "seller", "turns": [ { "say": "I sold 100 kilos of kingfish at one rial two hundred a kilo", "expect": { "status": "ready", "total": 120 } } ] },
+    { "name": "Price: 1 rial and 200 baisa", "role": "seller", "turns": [ { "say": "I sold 100 kilos of kingfish at 1 rial and 200 baisa per kilo", "expect": { "status": "ready", "total": 120 } } ] },
+    { "name": "Price: 1.2 rials", "role": "seller", "turns": [ { "say": "I sold 100 kilos of kingfish at 1.2 rials a kilo", "expect": { "status": "ready", "total": 120 } } ] },
+    { "name": "Price: 1200 baisa", "role": "seller", "turns": [ { "say": "I sold 100 kilos of kingfish at 1200 baisa a kilo", "expect": { "status": "ready", "total": 120 } } ] },
+    { "name": "Price: 800 baisa", "role": "seller", "turns": [ { "say": "I sold 100 kilos of kingfish at 800 baisa a kilo", "expect": { "status": "ready", "total": 80 } } ] },
+    { "name": "Price: two and a half rials", "role": "seller", "turns": [ { "say": "I sold 100 kilos of kingfish at two and a half rials a kilo", "expect": { "status": "ready", "total": 250 } } ] },
+    { "name": "Price: a rial and a quarter", "role": "seller", "turns": [ { "say": "I sold 100 kilos of kingfish at a rial and a quarter a kilo", "expect": { "status": "ready", "total": 125 } } ] },
+    { "name": "Price: riyal spelling", "role": "seller", "turns": [ { "say": "I sold 100 kilos of kingfish at 3 riyals a kilo", "expect": { "status": "ready", "total": 300 } } ] },
+    { "name": "Price: tons and baisa", "role": "seller", "turns": [ { "say": "I just sold 3 tons of sardines to Ali at 300 baisa a kilo", "expect": { "status": "ready", "totalKg": 3000, "total": 900 } } ] },
+    { "name": "Price: English lump sum", "role": "seller", "turns": [ { "say": "I sold 200 kilos of kingfish to Salem, 400 rials for the lot", "expect": { "status": "ready", "total": 400 } } ] },
+    { "name": "Seller account cannot order", "role": "seller", "turns": [ { "say": "I want to buy 200 kilos of sardines", "expect": { "status": "not_allowed", "type": "order" } } ] },
+    { "name": "Fish not on the list", "role": "seller", "turns": [ { "say": "I sold 40 kilos of trout at 3 rials a kilo", "expect": { "status": "needs_details", "missingFields": ["fish"] } } ] },
+    { "name": "Review loop: change, remove, add, confirm", "role": "seller", "turns": [
+      { "say": "I sold 100 kilos of kingfish at 4 rials and 50 kilos of hamour at 3 rials", "expect": { "status": "ready", "total": 550 } },
+      { "say": "make the kingfish 150 kilos", "expect": { "status": "ready", "intent": "continue", "total": 750 } },
+      { "say": "remove the hamour", "expect": { "status": "ready", "itemCount": 1, "total": 600 } },
+      { "say": "add 20 kilos of sardines at 800 baisa", "expect": { "status": "ready", "itemCount": 2, "total": 616 } },
+      { "say": "yes, confirm", "expect": { "status": "confirm", "total": 616 } } ] },
+    { "name": "Confirm needs a complete draft", "role": "seller", "turns": [
+      { "say": "I sold 100 kilos of kingfish", "expect": { "status": "needs_details", "missingFields": ["price"] } },
+      { "say": "yes confirm", "expect": { "status": "needs_details" } } ] },
+    { "name": "English unrelated", "role": "both", "turns": [ { "say": "What's the weather like today?", "expect": { "status": "unrelated" } } ] }
+  ]
+}

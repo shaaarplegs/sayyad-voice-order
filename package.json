@@ -5,6 +5,8 @@
   "description": "Voice-to-order prototype for Sayyad: Whisper transcription + DeepSeek intent and fish-set extraction.",
   "engines": { "node": ">=18" },
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node integration/run-vectors.mjs",
+    "export-prompts": "node integration/export-prompts.mjs"
   }
 }

@@ -1,0 +1,65 @@
+- Acanthopagrus: فسكر, بنت النوخذة
+- African Pompano (also Dimond Trivially): خايط
+- AMBERJACK: غزال, عمبر جاك
+- Anchovies: حنطه [sizes: Small]
+- ANDAK: عندق
+- BARRACUDA: عقام, قد
+- BELT: سيفريندو, حزام
+- BLACK POMPRET: حلوايوه
+- BLUE: تقوى
+- Blue Line Snapper: باريش
+- BONITO FISH: سقطانه
+- Cat Fish: خن
+- Cobia: سكل
+- CRABS: جبجب, سرطان البحر, جبجب شنجوب
+- CROAKER: أشخلي
+- Cuttle Fish: حبار
+- Farfoura fish: فرفورة
+- GAZWAN: غزوان
+- Golden Trevally: دبس
+- GREY MULLET: بياح
+- HALIBUT: سمكة موسى, كلب البحر
+- Hamam fish: باعيل, حمام
+- HAMOUR: هامور [sizes: Medium; Large; Small]
+- King Fish: كنعد [sizes: Medium; Large; Small = خباط]
+- KOFFER: كوفر [sizes: Medium; Large; Small]
+- kufdar: كفدار
+- LADY FISH: حاسون, سوام, سيدة
+- LOBSTER: شارخة
+- Long Tail Tuna: سهوه
+- MABROUKA: مبروكة
+- MACKEREL: ضلعة
+- MAHI MAHI: عنفلوص
+- Milk fish: عيفه
+- Mixed Fish-BADAH: بدحه
+- MUSSEL MEAT: محار, بلح البحر
+- NAGROOR: نجرور, كرر
+- NEEDLE: مران, إبرة
+- OCTOPUS: اخطبوط
+- PARROT: بغبغاء
+- Pompano (also BANBANU): طلاح
+- Qishran: قشران
+- QUEEN Fish: حبسة
+- RED MULLET: حرشة
+- RED SEABREAM: سيه, سيا [sizes: Small; Medium; Large]
+- ROHU (also RUHO): روهو
+- SAAFI: صافي
+- Sadah Tuna: صده
+- SAIL: سنسول
+- SALMON: سلمون
+- SAMAN: سمان
+- SARDINES: عومة
+- seabass: سيباس
+- SEABREAM: سبريم
+- SEEMA: صيمة
+- Shark: جرجور
+- SHARRY: شعري [sizes: Medium; Large; Small]
+- SHRIMPS: ربيان
+- SILVER BREAM: كوفر أبيض, شعم [sizes: Medium; Large; Small]
+- SQUID: حبار
+- SULTAN IBRAHIM: سلطان إبراهيم
+- Sweet Lips: خناي, خشام [sizes: Large; Medium; Small]
+- TILAPIA: بلطي, مشط
+- TREVALLY: صال
+- Yellow Fin Tuna: جيذر [sizes: Large; Medium; Small = Madod, معدود]
+- YELLOWTAIL SCAD: الذيل الاصفر

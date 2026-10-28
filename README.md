@@ -28,4 +28,8 @@ Open http://localhost:3000, click **Service keys** to add your OpenAI and DeepSe
 - Invoice: “بعت لأحمد ٢٠٠ كيلو جيذر بريالين الكيلو و٨٠ كيلو هامور بثلاث ريالات”
 - Incomplete invoice, then a follow-up: “بعت ١٠٠ كيلو كنعد بأربع ريالات و٥٠ كيلو شعري”, then “الشعري بريالين”
 
-The prompts, schemas and calculations are in `docs/pipeline.js`. `<BUYER_ID>` and `<SELLER_ID>` are placeholders until this is wired to real accounts. Photos are from Unsplash.
+## Code and integration
+
+`docs/` holds the page and the pipeline in separate parts: `providers.js` (Whisper and DeepSeek calls), `prompts.js`, `fish-catalog.js`, `rules.js` (prices, units, totals, what is missing; no I/O) and `pipeline.js` (the flow). `<BUYER_ID>` and `<SELLER_ID>` are placeholders until this is wired to real accounts. Photos are from Unsplash.
+
+For the .NET integration: [integration guide](integration/INTEGRATION.md), [workflow diagram](integration/WORKFLOW.md), JSON contracts, plain-text prompts and test vectors in `integration/`. `npm test` runs the test vectors.
