@@ -22,7 +22,7 @@ async function transcribe(audio, filename, mimeType) {
   form.append('file', audio, filename);
   form.append('model', settings.whisperModel || 'whisper-1');
   // Vocabulary hint so Whisper spells fish names, places, units and prices well.
-  form.append('prompt', 'سمك في عمان: كنعد، خباط، هامور، شعري، جيذر، معدود، سهوة، صدة، عومة، ضلعة، كوفر، سيه، صافي، باريش، خناي، حبسة، عنفلوص، عقام. كيلو، طن، ريال، بيسة. بعت، فاتورة، أبغي، التوصيل إلى العامرات، السيب، صحار، صلالة.');
+  form.append('prompt', 'سمك في عمان: كنعد، خباط، هامور، شعري، جيذر، معدود، سهوة، صدة، عومة، ضلعة، كوفر، سيه، صافي، باريش، خناي، حبسة، عنفلوص، عقام. كيلو، طن، ريال، بيسة، بريال و٢٠٠ بيسة، ريالين و٥٠٠. بعت، فاتورة، أبغي، التوصيل إلى العامرات، السيب، صحار، صلالة.');
 
   // OpenAI omits CORS headers on invalid-key responses, so the browser reports a network error.
   const res = await fetch(OPENAI_URL, {
@@ -34,6 +34,15 @@ async function transcribe(audio, filename, mimeType) {
   });
   if (!res.ok) throw new Error(`OpenAI transcription failed (${res.status}): ${await res.text()}`);
   return (await res.json()).text.trim();
+}
+
+// Speech-to-text often writes the "و" (and) between rials and baisa as "ه": "ريال ه٢٠٠", "ريالة ميتين".
+// Only rewritten when a number follows, so words like "هامور" or "هذا" after ريال are left alone.
+const NUMBER_AHEAD = '(?=[0-9٠-٩]|مي|مئ|ثلاثمي|ثلثمي|اربعمي|أربعمي|خمسمي|ستمي|سبعمي|ثمانمي|تسعمي|عشر|ثلاث|اربع|أربع|خمس|ست|سبع|ثمان|تسع|نص|ربع)';
+export function fixRialAnd(text) {
+  return text
+    .replace(new RegExp(`(ريال(?:ين|ات)?)\\s*[هة]\\s*${NUMBER_AHEAD}`, 'g'), '$1 و')
+    .replace(new RegExp(`ريال[هة]\\s+${NUMBER_AHEAD}`, 'g'), 'ريال و');
 }
 
 async function deepseekJson(systemPrompt, payload) {
@@ -98,11 +107,16 @@ ${MERGE_RULES}
 
 An invoice is a list of fish sets, one per fish sold. For each fish set:
 ${FISH_RULES}
-- price + priceUnit: the price in Omani rials (OMR) as a number, with "per_kg" (the usual case), "per_ton", or "total"
-  (a lump sum for that fish set). 1 rial = 1000 baisa (بيسة), so "٥٠٠ بيسة" = 0.5; "ريال ونص" = 1.5; "ريالين" = 2.
-  If one price is said for several fish ("كلهم بريالين", "both for 2.2"), give it to each of those fish, per kg.
-  A price without a unit is per kg. Use "total" only for a clear lump sum for the whole fish set ("الكل بأربعمية",
-  "the lot for 400 rials"), usually far larger than a per-kg price (fish costs roughly 0.2 to 10 OMR per kg).
+- price: how the price was said, in Omani money, split into parts. Do not convert or add them up; leave unsaid parts null.
+  Omani prices: amounts up to 1000 are baisa (بيسة), and 1000 baisa = 1 rial (ريال).
+  - rial: the amount said in rials ("ريال" = 1, "ريالين" = 2, "ثلاث ريالات" = 3, "1.2 rial" = 1.2, "ريال ونص" = 1.5, "ريال وربع" = 1.25).
+  - baisa: the amount said in baisa ("٨٠٠ بيسة" = 800), or the number after "ريال و" / "rial and"
+    ("ريال و٢٠٠" or "ريال وميتين" or "one rial and 200" = rial 1, baisa 200; "ريالين وخمسمية" = rial 2, baisa 500).
+  - number: a price said as a bare number with no unit ("الكيلو بـ ٨٠٠" = 800, "بثلاثة" = 3).
+  - unit: "per_kg" (the usual case; a price without a unit is per kg), "per_ton", or "total" (a clear lump sum for the
+    whole fish set, e.g. "الكل بأربعمية ريال", "the lot for 400 rials").
+  If one price is said for several fish ("كلهم بريالين", "both for 1.2"), give it to each of those fish.
+  Speech-to-text sometimes writes the "و" after ريال as "ه" ("ريال ه٢٠٠", "ريالة ميتين"): read it as "و".
 Also:
 - buyerName: who the fish was sold to, if said ("بعت لأحمد" -> "أحمد"), else null.
 ${NUMBER_RULES}
@@ -110,12 +124,12 @@ ${NUMBER_RULES}
 ${CATALOG}
 
 Reply with JSON only:
-{"buyerName": string | null, "items": [{"spoken": string | null, "fish": string | null, "candidates": string[], "size": "Small" | "Medium" | "Large" | null, "quantity": number | null, "quantityUnit": "kg" | "ton" | null, "price": number | null, "priceUnit": "per_kg" | "per_ton" | "total" | null}]}`;
+{"buyerName": string | null, "items": [{"spoken": string | null, "fish": string | null, "candidates": string[], "size": "Small" | "Medium" | "Large" | null, "quantity": number | null, "quantityUnit": "kg" | "ton" | null, "price": {"rial": number | null, "baisa": number | null, "number": number | null, "unit": "per_kg" | "per_ton" | "total"} | null}]}`;
 
 const ORDER_PROMPT = `You turn a buyer's voice message into an order draft for Sayyad, a fish marketplace in Oman.
 ${MERGE_RULES}
 
-An order is a delivery location plus a list of fish with quantities. Buyers do not give prices. For each fish:
+An order is a list of fish with quantities, plus a delivery location if the buyer gives one. Buyers do not give prices. For each fish:
 ${FISH_RULES}
 Delivery location:
 - location.spoken: the place as said. location.wilayat and location.governorate: exact English names from the list below, or null.
@@ -159,6 +173,17 @@ function matchProduct(raw, item) {
   Object.assign(item, { productId: product.id, productName: product.nameEN, size: product.size, sizeAssumed: !wanted && fish.products.length > 1 });
 }
 
+// Omani prices: amounts up to 1000 are baisa and 1000 baisa = 1 rial, so "ريال و٢٠٠" = 1.2 and a bare "٨٠٠"
+// a kilo = 0.8. A small bare number ("بثلاثة") is rials, and so is any bare number for a ton or a lump sum.
+function priceInRials(p) {
+  if (!p || typeof p !== 'object') return null;
+  const part = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
+  const rial = part(p.rial), baisa = part(p.baisa), bare = positive(p.number);
+  if (rial !== null || baisa !== null) return positive((rial || 0) + (baisa || 0) / 1000);
+  if (bare === null) return null;
+  return bare >= 50 && (p.unit || 'per_kg') === 'per_kg' ? bare / 1000 : bare;
+}
+
 // Unify units (tons -> kg, price -> OMR per kg) and list what each fish set is missing.
 function evaluateItem(raw, type) {
   const quantity = positive(raw.quantity);
@@ -170,12 +195,13 @@ function evaluateItem(raw, type) {
   matchProduct(raw, item);
   if (item.quantityKg === null) item.missing.push('quantity');
   if (type === 'invoice') {
-    const price = positive(raw.price);
+    const price = priceInRials(raw.price);
+    const unit = raw.price?.unit || 'per_kg';
     if (price === null) item.missing.push('price');
-    if (price !== null && raw.priceUnit !== 'total') item.pricePerKg = raw.priceUnit === 'per_ton' ? price / 1000 : price;
+    if (price !== null && unit !== 'total') item.pricePerKg = unit === 'per_ton' ? price / 1000 : price;
     if (price !== null && item.quantityKg !== null) {
-      if (raw.priceUnit === 'total') item.pricePerKg = price / item.quantityKg;
-      item.lineTotal = round3(raw.priceUnit === 'total' ? price : item.quantityKg * item.pricePerKg);
+      if (unit === 'total') item.pricePerKg = price / item.quantityKg;
+      item.lineTotal = round3(unit === 'total' ? price : item.quantityKg * item.pricePerKg);
     }
   }
   return item;
@@ -187,11 +213,9 @@ export function evaluateDraft(draft) {
   const missing = items.flatMap((item, index) => item.missing.map((field) => ({ index, fishName: item.fishName, field })));
   if (!items.length) missing.push({ index: null, fishName: null, field: 'items' });
 
-  let location = null;
-  if (draft.type === 'order') {
-    location = resolveLocation(draft.location || {});
-    if (!location) missing.push({ index: null, fishName: null, field: 'location', spoken: draft.location?.spoken || null });
-  }
+  // The delivery location is optional; a place that isn't in Oman's list is reported, not required.
+  const location = draft.type === 'order' ? resolveLocation(draft.location || {}) : null;
+  const unmatchedPlace = draft.type === 'order' && !location ? draft.location?.spoken || null : null;
 
   const complete = items.filter((item) => !item.missing.length);
   const totalKg = complete.reduce((sum, item) => sum + item.quantityKg, 0);
@@ -204,11 +228,12 @@ export function evaluateDraft(draft) {
     missing,
     completeCount: complete.length,
     location,
+    unmatchedPlace,
     buyerName: draft.buyerName || null,
     totalKg,
     total,
     // Some fish sets are complete and the rest is not: the user may finish with the complete ones only.
-    canUseCompleteOnly: !ready && complete.length > 0 && complete.length < items.length && (draft.type === 'invoice' || Boolean(location)),
+    canUseCompleteOnly: !ready && complete.length > 0 && complete.length < items.length,
     apiRequest: ready ? buildApiRequest(draft.type, items, location, draft.buyerName || null, total) : null,
   };
 }
@@ -226,7 +251,7 @@ function buildApiRequest(type, items, location, buyerName, total) {
       body: {
         buyerId: '<BUYER_ID>',
         source: 'voice',
-        deliveryLocation: { governorate: location.governorate, wilayat: location.wilayat, lat: location.lat, lng: location.lng },
+        deliveryLocation: location ? { governorate: location.governorate, wilayat: location.wilayat, lat: location.lat, lng: location.lng } : null,
         items: items.map(({ productId, productName, size, quantityKg }) => ({ productId, fishName: productName, size, quantityKg })),
       },
     };
@@ -251,6 +276,7 @@ function buildApiRequest(type, items, location, buyerName, total) {
 export async function interpret(transcript, { role = 'both', draft = null } = {}, userSettings = settings, onStep = () => {}) {
   settings = userSettings;
   if (!transcript) return { transcript, intent: 'unrelated', status: 'unrelated', reason: 'Empty transcript.', draft };
+  transcript = fixRialAnd(transcript);
 
   onStep('understanding');
   let { intent, reason } = await deepseekJson(CLASSIFY_PROMPT, { transcript, openDraft: draft });

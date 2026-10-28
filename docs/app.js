@@ -23,7 +23,7 @@ const TEXT = {
     examplesTitle: 'Two ways to use it',
     tagBuyer: 'For buyers',
     buyerTitle: 'Order fish',
-    buyerNote: 'Say the fish, how much, and where to deliver.',
+    buyerNote: 'Say the fish and how much, and where to deliver if you like.',
     buyerTr: '“I’d like 100 kg of king fish and 50 kg of sharry, delivered to Al Amerat.”',
     tagSeller: 'For sellers',
     sellerTitle: 'Create an invoice',
@@ -92,7 +92,7 @@ const TEXT = {
     need_fish_choose: 'which fish exactly: {list}',
     need_fish_unknown: 'not on Sayyad’s fish list; say a fish from the list',
     need_size: 'size: {list}',
-    need_location: 'Delivery location (wilayat or governorate)',
+    notSpecified: 'Not specified',
     need_items: 'The fish and quantities',
     unknownPlace: 'We couldn’t find “{p}” among Oman’s wilayats and governorates.',
     askMissing: 'Record a short message with just these details. You don’t need to repeat the rest.',
@@ -109,7 +109,6 @@ const TEXT = {
     size_Medium: 'Medium',
     size_Large: 'Large',
     sizeDefault: '(default)',
-    missingChip_location: 'Location missing',
     invoiceNext: 'Calculated in Omani rials and ready to send to the buyer.',
     orderNext: 'Sayyad sends this order to suppliers in the delivery area, and the buyer chooses from their offers.',
     notAllowedHead: 'Not available for this account',
@@ -119,7 +118,7 @@ const TEXT = {
     draftStillOpen_invoice: 'Your draft invoice is still open. Record the missing details to finish it.',
     draftStillOpen_order: 'Your draft order is still open. Record the missing details to finish it.',
     unclearText: 'We couldn’t turn that into an order or an invoice. The audio may have been unclear, or the message may not be about buying or selling fish.',
-    tipOrder: 'To order: the fish, how much, and the delivery wilayat',
+    tipOrder: 'To order: the fish and how much (the delivery wilayat is optional)',
     tipInvoice: 'For an invoice: the fish you sold, how much, and the price per kilo',
   },
   ar: {
@@ -141,7 +140,7 @@ const TEXT = {
     examplesTitle: 'طريقتان للاستخدام',
     tagBuyer: 'للمشترين',
     buyerTitle: 'اطلب سمك',
-    buyerNote: 'قل نوع السمك والكمية ومكان التوصيل.',
+    buyerNote: 'قل نوع السمك والكمية، ومكان التوصيل إن أردت.',
     buyerTr: '',
     tagSeller: 'للبائعين',
     sellerTitle: 'أنشئ فاتورة',
@@ -210,7 +209,7 @@ const TEXT = {
     need_fish_choose: 'أي نوع بالضبط: {list}',
     need_fish_unknown: 'ليس ضمن قائمة أسماك صياد؛ اذكر سمكًا من القائمة',
     need_size: 'الحجم: {list}',
-    need_location: 'مكان التوصيل (الولاية أو المحافظة)',
+    notSpecified: 'غير محدد',
     need_items: 'نوع السمك والكمية',
     unknownPlace: 'لم نجد «{p}» ضمن ولايات ومحافظات سلطنة عمان.',
     askMissing: 'سجّل رسالة قصيرة بهذه التفاصيل فقط، ولا داعي لإعادة الباقي.',
@@ -227,7 +226,6 @@ const TEXT = {
     size_Medium: 'وسط',
     size_Large: 'كبير',
     sizeDefault: '(افتراضي)',
-    missingChip_location: 'المكان ناقص',
     invoiceNext: 'محسوبة بالريال العماني وجاهزة للإرسال إلى المشتري.',
     orderNext: 'يرسل صياد هذا الطلب إلى الموردين في منطقة التوصيل، ويختار المشتري من عروضهم.',
     notAllowedHead: 'غير متاح لهذا الحساب',
@@ -237,7 +235,7 @@ const TEXT = {
     draftStillOpen_invoice: 'مسودة الفاتورة ما زالت مفتوحة. سجّل التفاصيل الناقصة لإكمالها.',
     draftStillOpen_order: 'مسودة الطلب ما زالت مفتوحة. سجّل التفاصيل الناقصة لإكماله.',
     unclearText: 'لم نتمكن من تحويل ذلك إلى طلب أو فاتورة. ربما لم يكن الصوت واضحًا، أو أن الرسالة لا تتعلق بشراء أو بيع السمك.',
-    tipOrder: 'للطلب: نوع السمك والكمية وولاية التوصيل',
+    tipOrder: 'للطلب: نوع السمك والكمية (ولاية التوصيل اختيارية)',
     tipInvoice: 'للفاتورة: السمك الذي بعته والكمية وسعر الكيلو',
   },
 };
@@ -613,7 +611,7 @@ function metaLine(r) {
   const p = el('p', 'meta');
   if (r.type === 'order') {
     p.append(el('span', 'meta-label', t('deliverTo') + ':'));
-    if (!r.location) p.append(chip('location'));
+    if (!r.location) p.append(el('span', 'meta-note', r.unmatchedPlace ? tf('unknownPlace', { p: r.unmatchedPlace }) : t('notSpecified')));
     else {
       const l = r.location;
       const wilayat = lang === 'ar' ? l.wilayatAr : l.wilayat;
@@ -662,7 +660,6 @@ function renderOutcome(r) {
     const perItem = new Map();
     for (const m of r.missing) {
       if (m.index === null) {
-        if (m.spoken) ul.append(el('li', '', tf('unknownPlace', { p: m.spoken })));
         ul.append(el('li', '', t('need_' + m.field)));
       } else {
         perItem.set(m.index, [...(perItem.get(m.index) || []), needText(r.items[m.index], m.field)]);

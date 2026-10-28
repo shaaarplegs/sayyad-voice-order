@@ -138,6 +138,7 @@ h2 { font: 700 clamp(1.5rem, 3vw, 2rem)/1.2 var(--display); margin: 0 0 20px; }
 .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 0; padding: 14px 26px; border-bottom: 1px solid var(--line); }
 .meta-label { font-weight: 600; color: var(--muted); }
 .meta-value { font-weight: 700; }
+.meta-note { color: var(--muted); }
 .chip-missing { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: .78rem; font-weight: 600; white-space: nowrap; color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
 .lines tr.incomplete td { background: color-mix(in srgb, var(--warn) 6%, var(--card)); }
 .outcome-body .strong { font-weight: 700; margin-bottom: 6px; }
