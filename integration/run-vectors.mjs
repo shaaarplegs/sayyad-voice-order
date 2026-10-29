@@ -21,7 +21,8 @@ const near = (a, b) => (a === null || b === null ? a === b : Math.abs(a - b) < 1
 for (const [name, text] of Object.entries(PROMPT_FILES)) {
   let file = '';
   try { file = readFileSync(new URL(name, PROMPT_DIR), 'utf8'); } catch {}
-  check(`prompts/${name} is up to date`, file === text + '\n', 'run: npm run export-prompts');
+  // A Windows checkout may turn line endings into CRLF; compare the text only.
+  check(`prompts/${name} is up to date`, file.replace(/\r\n/g, '\n') === text + '\n', 'run: npm run export-prompts');
 }
 
 for (const v of vectors.fixRialAnd) check(`fixRialAnd "${v.in}"`, fixRialAnd(v.in) === v.out, `got "${fixRialAnd(v.in)}"`);
